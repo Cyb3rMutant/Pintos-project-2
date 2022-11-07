@@ -20,7 +20,6 @@
 
 static thread_func start_process NO_RETURN;
 static bool load( const char *cmdline, void ( **eip ) ( void ), void **esp );
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -28,25 +27,67 @@ static bool load( const char *cmdline, void ( **eip ) ( void ), void **esp );
 tid_t
 process_execute( const char *file_name ) {
   char *fn_copy;
+  char *save_ptr;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page( 0 );
   if ( fn_copy == NULL ) {
-    thread_current()->exit_code = 1;
+    // thread_current()->exit_code = 1;
     return TID_ERROR;
   }
   strlcpy( fn_copy, file_name, PGSIZE );
 
   /* Create a new thread to execute FILE_NAME. */
+  file_name = strtok_r( (char *)file_name, " ", &save_ptr );//argument parsing by strtok_r
   tid = thread_create( file_name, PRI_DEFAULT, start_process, fn_copy );
 
   if ( tid == TID_ERROR ) {
-    thread_current()->exit_code = 1;
+    // thread_current()->exit_code = 1;
     palloc_free_page( fn_copy );
   }
   return tid;
+}
+
+
+static void push_arguements_on_stack( const char *argv[], int argc, void **esp ) {
+
+  int i, len = 0;
+  void *argv_addr[argc];
+
+  for ( i = argc - 1; i >= 0; i-- ) {
+    len = strlen( argv[i] ) + 1;
+    *esp -= len;
+    memcpy( *esp, argv[i], len );
+    argv_addr[i] = *esp;
+  }
+
+  // word align
+  *esp = (void *)( (unsigned int)( *esp ) & 0xfffffffc );
+
+  // last null
+  *esp -= 4;
+  *( (uint32_t *)*esp ) = 0;
+
+  // setting **esp with argvs
+  for ( i = argc - 1; i >= 0; i-- ) {
+    *esp -= 4;
+    *( (void **)*esp ) = argv_addr[i];
+  }
+
+  // setting **argv (addr of stack, esp)
+  *esp -= 4;
+  *( (void **)*esp ) = ( *esp + 4 );
+
+  // setting argc
+  *esp -= 4;
+  *( (int *)*esp ) = argc;
+
+  // setting ret addr
+  *esp -= 4;
+  *( (int *)*esp ) = 0;
+
 }
 
 /* A thread function that loads a user process and starts it
@@ -57,18 +98,34 @@ start_process( void *file_name_ ) {
   struct intr_frame if_;
   bool success;
 
+  const char **argv = (const char **)palloc_get_page( 0 );
+
+  char *token;
+  char *save_ptr;
+  int argc = 0;
+
+  for ( token = strtok_r( file_name, " ", &save_ptr ); token != NULL;
+    token = strtok_r( NULL, " ", &save_ptr ) ) {
+    argv[argc++] = token;
+  }
+
   /* Initialize interrupt frame and load executable. */
   memset( &if_, 0, sizeof if_ );
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-
   success = load( file_name, &if_.eip, &if_.esp );
+  push_arguements_on_stack( argv, argc, &if_.esp ); // pushing arguments into stack
+
+  // DEBUG
+  hex_dump( if_.esp, if_.esp, PHYS_BASE - if_.esp, true );
+
+  palloc_free_page( argv );
 
   /* If load failed, quit. */
   palloc_free_page( file_name );
   if ( !success ) {
-    thread_current()->exit_code = 1;
+    // thread_current()->exit_code = 1;
     thread_exit();
   }
 
@@ -428,7 +485,7 @@ setup_stack( void **esp ) {
   if ( kpage != NULL ) {
     success = install_page( ( (uint8_t *)PHYS_BASE ) - PGSIZE, kpage, true );
     if ( success ) {
-      *esp = PHYS_BASE - 12;
+      *esp = PHYS_BASE;
     }
     else
       palloc_free_page( kpage );
