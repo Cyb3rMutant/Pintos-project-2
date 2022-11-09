@@ -63,28 +63,24 @@ static void push_arguements_on_stack( const char *argv[], int argc, void **esp )
     argv_addr[i] = *esp;
   }
 
-  // word align
-  *esp = (void *)( (unsigned int)( *esp ) & 0xfffffffc );
+  uint8_t word_align = (uint8_t)( *esp ) % 4;
+  *esp -= word_align;
+  memset( *esp, 0, word_align );
 
-  // last null
   *esp -= 4;
   *( (uint32_t *)*esp ) = 0;
 
-  // setting **esp with argvs
   for ( i = argc - 1; i >= 0; i-- ) {
     *esp -= 4;
     *( (void **)*esp ) = argv_addr[i];
   }
 
-  // setting **argv (addr of stack, esp)
   *esp -= 4;
   *( (void **)*esp ) = ( *esp + 4 );
 
-  // setting argc
   *esp -= 4;
   *( (int *)*esp ) = argc;
 
-  // setting ret addr
   *esp -= 4;
   *( (int *)*esp ) = 0;
 
