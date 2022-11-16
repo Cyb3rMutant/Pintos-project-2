@@ -91,6 +91,11 @@ struct thread {
    /* Shared between thread.c and synch.c. */
    struct list_elem elem;              /* List element. */
 
+   struct list file_list;              /* list of open files */
+   struct file *own_file;              /* its own file to be closed on exit */
+   int next_fd;
+
+
 #ifdef USERPROG
    /* Owned by userprog/process.c. */
    uint32_t *pagedir;                  /* Page directory. */
@@ -98,6 +103,12 @@ struct thread {
 #endif
    /* Owned by thread.c. */
    unsigned magic;                     /* Detects stack overflow. */
+};
+
+struct file_map {
+   int fd;
+   struct file *file;
+   struct list_elem elem;
 };
 
 /* If false (default), use round-robin scheduler.
@@ -135,5 +146,11 @@ int thread_get_nice( void );
 void thread_set_nice( int );
 int thread_get_recent_cpu( void );
 int thread_get_load_avg( void );
+
+
+void acquire_file_lock( void );
+void release_file_lock( void );
+struct file *get_file( struct list *, int );
+struct file_map *get_file_map( struct list *, int );
 
 #endif /* threads/thread.h */

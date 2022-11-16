@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "filesys/file.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -37,6 +38,7 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+struct lock file_lock;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame {
@@ -91,6 +93,7 @@ thread_init( void ) {
   ASSERT( intr_get_level() == INTR_OFF );
 
   lock_init( &tid_lock );
+  lock_init( &file_lock );
   list_init( &ready_list );
   list_init( &all_list );
 
@@ -454,9 +457,11 @@ init_thread( struct thread *t, const char *name, int priority ) {
 
   //t->is_kernel = is_kernel;
 
+  list_init( &t->file_list );
   old_level = intr_disable();
   list_push_back( &all_list, &t->allelem );
   intr_set_level( old_level );
+  t->next_fd = 2;
 }
 
 
@@ -562,6 +567,39 @@ allocate_tid( void ) {
   lock_release( &tid_lock );
 
   return tid;
+}
+
+void
+acquire_file_lock( void ) {
+  lock_acquire( &file_lock );
+}
+
+void
+release_file_lock( void ) {
+  lock_release( &file_lock );
+}
+
+struct file_map *get_file_map( struct list *file_list, int fd ) {
+  struct list_elem *e;
+  for ( e = list_begin( file_list ); e != list_end( file_list ); e = list_next( e ) ) {
+    struct file_map *temp_fmap = list_entry( e, struct file_map, elem );
+    if ( temp_fmap->fd == fd ) {
+      return temp_fmap;
+    }
+  }
+
+  return NULL;
+}
+
+struct file *get_file( struct list *file_list, int fd ) {
+  struct file_map *temp_fmap = get_file_map( file_list, fd );
+
+  if ( temp_fmap == NULL ) {
+    return NULL;
+  }
+  else {
+    return temp_fmap->file;
+  }
 }
 
 /* Offset of `stack' member within `struct thread'.

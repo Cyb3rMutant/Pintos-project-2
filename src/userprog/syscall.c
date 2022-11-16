@@ -4,6 +4,10 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "devices/shutdown.h"
+#include "filesys/filesys.h"
+#include "threads/palloc.h"
+#include "devices/input.h"
+#include "filesys/file.h"
 
 static void syscall_handler( struct intr_frame * );
 
@@ -23,6 +27,8 @@ syscall_handler( struct intr_frame *f ) {
   switch ( syscall_no ) {
     case SYS_HALT:
       shutdown_power_off();
+
+      NOT_REACHED();
       break;
 
     case SYS_EXIT:
@@ -53,16 +59,58 @@ syscall_handler( struct intr_frame *f ) {
       break;
 
     case SYS_OPEN:
-      printf( "SYS_OPEN not implemented yet\n" );
+    {
+      char *file_name = *(char **)( esp + 4 );
+      acquire_file_lock();
+      struct file *file_ptr = filesys_open( file_name );
+      release_file_lock();
+
+      if ( file_ptr == NULL )
+        f->eax = -1;
+      else {
+        struct file_map *fmap = palloc_get_page( 0 );
+        fmap->fd = thread_current()->next_fd++;
+        fmap->file = file_ptr;
+        list_push_back( &thread_current()->file_list, &fmap->elem );
+        f->eax = fmap->fd;
+      }
+
       break;
+    }
 
     case SYS_FILESIZE:
       printf( "SYS_FILESIZE not implemented yet\n" );
       break;
 
     case SYS_READ:
-      printf( "SYS_READ not implemented yet\n" );
+    {
+      int read_fd = *(int *)( esp + 4 );
+      char *read_buffer = *(char **)( esp + 8 );
+      unsigned read_size = *(unsigned *)( esp + 12 );
+
+      if ( read_fd == 0 ) // read from keyboard
+      {
+        int i;
+        for ( i = 0; i < read_size; i++ ) {
+          read_buffer[i] = input_getc();
+        }
+        f->eax = read_size;
+      }
+      else {
+        struct file *read_file = get_file( &thread_current()->file_list, read_fd );
+        if ( read_file == NULL ) {
+          f->eax = -1;
+          return;
+        }
+        else {
+          acquire_file_lock();
+          f->eax = file_read( read_file, read_buffer, read_size );
+          release_file_lock();
+        }
+      }
+
       break;
+    }
 
     case SYS_WRITE:
     {
@@ -70,8 +118,23 @@ syscall_handler( struct intr_frame *f ) {
       char *write_buffer = *(char **)( esp + 8 );
       unsigned write_size = *(unsigned *)( esp + 12 );
 
-      putbuf( write_buffer, write_size );
-      f->eax = write_size;
+      if ( write_fd == 1 ) // writing to stdout
+      {
+        putbuf( write_buffer, write_size );
+        f->eax = write_size;
+      }
+      else {
+        struct file *write_file = get_file( &thread_current()->file_list, write_fd );
+        if ( write_file == NULL ) {
+          f->eax = -1;
+          return;
+        }
+        else {
+          acquire_file_lock();
+          f->eax = file_write( write_file, write_buffer, write_size );
+          release_file_lock();
+        }
+      }
       break;
     }
 
@@ -84,8 +147,22 @@ syscall_handler( struct intr_frame *f ) {
       break;
 
     case SYS_CLOSE:
-      printf( "SYS_CLOSE not implemented yet\n" );
+    {
+      int close_fd = *(int *)( esp + 4 );
+
+      struct file_map *close_file_map = get_file_map( &thread_current()->file_list, close_fd );
+      if ( close_file_map == NULL ) {
+        return;
+      }
+      else {
+        acquire_file_lock();
+        file_close( close_file_map->file );
+        release_file_lock();
+        list_remove( &close_file_map->elem );
+        palloc_free_page( close_file_map );
+      }
       break;
+    }
 
     default:
       printf( "syscall will not be implemented" );
