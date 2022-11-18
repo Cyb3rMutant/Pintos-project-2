@@ -8,6 +8,8 @@
 #include "threads/palloc.h"
 #include "devices/input.h"
 #include "filesys/file.h"
+#include "userprog/process.h"
+
 
 static void syscall_handler( struct intr_frame * );
 
@@ -40,10 +42,12 @@ syscall_handler( struct intr_frame *f ) {
 #endif
       thread_exit();
       break;
-    }
+  }
 
     case SYS_EXEC:
-      printf( "SYS_EXEC not implemented yet\n" );
+
+      char *cmd_line = *(char **)( esp + 4 );
+      f->eax = process_execute( cmd_line );
       break;
 
     case SYS_WAIT:
@@ -167,5 +171,5 @@ syscall_handler( struct intr_frame *f ) {
     default:
       printf( "syscall will not be implemented" );
       break;
-  }
+}
 }
