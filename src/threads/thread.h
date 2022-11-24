@@ -4,7 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-
+#include "threads/synch.h"
 /* States in a thread's life cycle. */
 enum thread_status {
    THREAD_RUNNING,     /* Running thread. */
@@ -91,19 +91,36 @@ struct thread {
    /* Shared between thread.c and synch.c. */
    struct list_elem elem;              /* List element. */
 
+   bool success;
+
+   int exit_code;
+
+   struct list child_proc;
+   struct thread *parent;
+
    struct list file_list;              /* list of open files */
    struct file *own_file;              /* its own file to be closed on exit */
    int next_fd;
 
+   struct semaphore child_lock;
+   int waitingon;
 
 #ifdef USERPROG
    /* Owned by userprog/process.c. */
    uint32_t *pagedir;                  /* Page directory. */
-   int exit_code;
 #endif
    /* Owned by thread.c. */
    unsigned magic;                     /* Detects stack overflow. */
 };
+
+
+struct child {
+   int tid;
+   struct list_elem elem;
+   int exit_code;
+   bool used;
+};
+
 
 struct file_map {
    int fd;

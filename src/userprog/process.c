@@ -17,6 +17,8 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load( const char *cmdline, void ( **eip ) ( void ), void **esp );
@@ -47,6 +49,12 @@ process_execute( const char *file_name ) {
     // thread_current()->exit_code = 1;
     palloc_free_page( fn_copy );
   }
+
+  sema_down( &thread_current()->child_lock );
+
+  if ( !thread_current()->success )
+    return -1;
+
   return tid;
 }
 
@@ -121,9 +129,16 @@ start_process( void *file_name_ ) {
   /* If load failed, quit. */
   palloc_free_page( file_name );
   if ( !success ) {
-    // thread_current()->exit_code = 1;
+    //printf("%d %d\n",thread_current()->tid, thread_current()->parent->tid);
+    thread_current()->parent->success = false;
+    sema_up( &thread_current()->parent->child_lock );
     thread_exit();
   }
+  else {
+    thread_current()->parent->success = true;
+    sema_up( &thread_current()->parent->child_lock );
+  }
+
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -146,10 +161,35 @@ start_process( void *file_name_ ) {
    does nothing. */
 int
 process_wait( tid_t child_tid UNUSED ) {
-  // FIXME: @bgaster --- quick hack to make sure processes execute!
-  for ( ;;);
+  printf( "PROOOOOOCCCCCEEEEEESSSSS WAIT" );
+  //printf("Wait : %s %d\n",thread_current()->name, child_tid);
+  struct list_elem *e;
 
-  return -1;
+  struct child *ch = NULL;
+  struct list_elem *e1 = NULL;
+
+  for ( e = list_begin( &thread_current()->child_proc ); e != list_end( &thread_current()->child_proc );
+    e = list_next( e ) ) {
+    struct child *f = list_entry( e, struct child, elem );
+    if ( f->tid == child_tid ) {
+      ch = f;
+      e1 = e;
+    }
+  }
+
+
+  if ( !ch || !e1 )
+    return -1;
+
+  thread_current()->waitingon = ch->tid;
+
+  if ( !ch->used )
+    sema_down( &thread_current()->child_lock );
+
+  int temp = ch->exit_code;
+  list_remove( e1 );
+
+  return temp;
 }
 
 /* Free the current process's resources. */

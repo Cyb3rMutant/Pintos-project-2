@@ -12,7 +12,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "filesys/file.h"
-
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -93,9 +93,10 @@ thread_init( void ) {
   ASSERT( intr_get_level() == INTR_OFF );
 
   lock_init( &tid_lock );
-  lock_init( &file_lock );
   list_init( &ready_list );
   list_init( &all_list );
+
+  lock_init( &file_lock );
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();
@@ -176,6 +177,7 @@ thread_create( const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
+  enum intr_level old_level;
 
   ASSERT( function != NULL );
 
@@ -191,6 +193,13 @@ thread_create( const char *name, int priority,
   /* Initialize thread. */
   init_thread( t, name, priority );
   tid = t->tid = allocate_tid();
+  struct child *c = malloc( sizeof( *c ) );
+  c->tid = tid;
+  c->exit_code = t->exit_code;
+  c->used = false;
+  list_push_back( &running_thread()->child_proc, &c->elem );
+
+  old_level = intr_disable();
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame( t, sizeof * kf );
@@ -206,6 +215,8 @@ thread_create( const char *name, int priority,
   sf = alloc_frame( t, sizeof * sf );
   sf->eip = switch_entry;
   sf->ebp = 0;
+
+  intr_set_level( old_level );
 
   /* Add to run queue. */
   thread_unblock( t );
@@ -288,6 +299,13 @@ thread_exit( void ) {
 #ifdef USERPROG
   process_exit();
 #endif
+
+
+  while ( !list_empty( &thread_current()->child_proc ) ) {
+    struct file_map *f = list_entry( list_pop_front( &thread_current()->child_proc ), struct child, elem );
+    free( f );
+  }
+
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
@@ -456,6 +474,12 @@ init_thread( struct thread *t, const char *name, int priority ) {
   t->magic = THREAD_MAGIC;
 
   //t->is_kernel = is_kernel;
+  list_init( &t->child_proc );
+  t->parent = running_thread();
+  t->exit_code = -100;
+
+  sema_init( &t->child_lock, 0 );
+  t->waitingon = 0;
 
   list_init( &t->file_list );
   old_level = intr_disable();

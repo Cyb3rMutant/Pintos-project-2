@@ -35,24 +35,42 @@ syscall_handler( struct intr_frame *f ) {
 
     case SYS_EXIT:
     {
-#ifdef USERPROG
-      int status;
-      status = *(int *)( esp + 4 );
+      int status = *(int *)( esp + 4 );
+      struct list_elem *e;
+
+      for ( e = list_begin( &thread_current()->parent->child_proc ); e != list_end( &thread_current()->parent->child_proc );
+        e = list_next( e ) ) {
+        struct child *f = list_entry( e, struct child, elem );
+        if ( f->tid == thread_current()->tid ) {
+          f->used = true;
+          f->exit_code = status;
+        }
+      }
+
       thread_current()->exit_code = status;
-#endif
+
+      if ( thread_current()->parent->waitingon == thread_current()->tid )
+        sema_up( &thread_current()->parent->child_lock );
+
       thread_exit();
       break;
-  }
+    }
 
     case SYS_EXEC:
+    {
 
       char *cmd_line = *(char **)( esp + 4 );
       f->eax = process_execute( cmd_line );
       break;
+    }
 
     case SYS_WAIT:
-      printf( "SYS_WAIT not implemented yet\n" );
+    {
+      printf( "\n\n\nWWWWWWWWAAAAAAAAAAAAAAAIIIIIIIIIIIIIIIIIITTTTTTTTTTTTTT\n\n\n" );
+      int pid = *(int *)( esp + 4 );
+      f->eax = process_wait( pid );
       break;
+    }
 
     case SYS_CREATE:
       printf( "SYS_CREATE not implemented yet\n" );
@@ -171,5 +189,5 @@ syscall_handler( struct intr_frame *f ) {
     default:
       printf( "syscall will not be implemented" );
       break;
-}
+  }
 }
