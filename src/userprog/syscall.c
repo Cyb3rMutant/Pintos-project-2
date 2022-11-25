@@ -58,7 +58,7 @@ syscall_handler( struct intr_frame *f ) {
 
     case SYS_EXEC:
     {
-
+      printf( "EXEC\n" );
       char *cmd_line = *(char **)( esp + 4 );
       f->eax = process_execute( cmd_line );
       break;
@@ -151,11 +151,11 @@ syscall_handler( struct intr_frame *f ) {
           f->eax = -1;
           return;
         }
-        else {
-          acquire_file_lock();
-          f->eax = file_write( write_file, write_buffer, write_size );
-          release_file_lock();
-        }
+
+        acquire_file_lock();
+        f->eax = file_write( write_file, write_buffer, write_size );
+        release_file_lock();
+
       }
       break;
     }

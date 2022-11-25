@@ -250,13 +250,13 @@ usage (int ret_code, const char *message, ...)
 {
   va_list args;
 
-  if (message != NULL) 
+  if (message != NULL)
     {
       va_start (args, message);
       vprintf (message, args);
       va_end (args);
     }
-  
+
   printf ("\n"
           "Usage: insult [OPTION]...\n"
           "Prints random insults to screen.\n\n"
@@ -273,7 +273,7 @@ main (int argc, char *argv[])
 {
   int sentence_cnt, new_seed, i, file_flag, sent_flag, seed_flag;
   int handle;
-  
+
   new_seed = 4951;
   sentence_cnt = 4;
   file_flag = 0;
@@ -310,10 +310,9 @@ main (int argc, char *argv[])
 	  if (++i >= argc)
 	    usage (-1, "Missing value for -f");
 
-          /* Because files have fixed length in the basic Pintos
-             file system, the 0 argument means that this option
-             will not be useful until project 4 is
-             implemented. */
+          /* Because files have fixed length in the basic Pintos file
+             system, the 0 argument means that this option will not be
+             useful until extensible files is implemented */
 	  create (argv[i], 0);
 	  handle = open (argv[i]);
           if (handle < 0)
@@ -337,7 +336,7 @@ main (int argc, char *argv[])
       expand (0, daGrammar, daGLoc, handle);
       hprintf (handle, "\n\n");
     }
-  
+
   if (file_flag)
     close (handle);
 

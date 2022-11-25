@@ -11,8 +11,8 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "filesys/file.h"
 #include "threads/malloc.h"
+#include "filesys/file.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -468,20 +468,18 @@ init_thread( struct thread *t, const char *name, int priority ) {
   strlcpy( t->name, name, sizeof t->name );
   t->stack = (uint8_t *)t + PGSIZE;
   t->priority = priority;
-#ifdef USERPROG
-  t->exit_code = 0;
-#endif
   t->magic = THREAD_MAGIC;
 
   //t->is_kernel = is_kernel;
   list_init( &t->child_proc );
   t->parent = running_thread();
+  list_init( &t->file_list );
   t->exit_code = -100;
 
   sema_init( &t->child_lock, 0 );
   t->waitingon = 0;
 
-  list_init( &t->file_list );
+  t->self = NULL;
   old_level = intr_disable();
   list_push_back( &all_list, &t->allelem );
   intr_set_level( old_level );
@@ -625,6 +623,8 @@ struct file *get_file( struct list *file_list, int fd ) {
     return temp_fmap->file;
   }
 }
+
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

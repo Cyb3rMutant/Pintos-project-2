@@ -98,8 +98,9 @@ struct thread {
    struct list child_proc;
    struct thread *parent;
 
+   struct file *self;
+
    struct list file_list;              /* list of open files */
-   struct file *own_file;              /* its own file to be closed on exit */
    int next_fd;
 
    struct semaphore child_lock;
