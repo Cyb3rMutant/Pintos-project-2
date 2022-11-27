@@ -31,7 +31,6 @@ syscall_handler( struct intr_frame *f ) {
       shutdown_power_off();
 
       NOT_REACHED();
-      break;
 
     case SYS_EXIT:
     {
@@ -53,12 +52,11 @@ syscall_handler( struct intr_frame *f ) {
         sema_up( &thread_current()->parent->child_lock );
 
       thread_exit();
-      break;
+      MOT_REACHED();
     }
 
     case SYS_EXEC:
     {
-      printf( "EXEC\n" );
       char *cmd_line = *(char **)( esp + 4 );
       f->eax = process_execute( cmd_line );
       break;
@@ -66,7 +64,6 @@ syscall_handler( struct intr_frame *f ) {
 
     case SYS_WAIT:
     {
-      printf( "\n\n\nWWWWWWWWAAAAAAAAAAAAAAAIIIIIIIIIIIIIIIIIITTTTTTTTTTTTTT\n\n\n" );
       int pid = *(int *)( esp + 4 );
       f->eax = process_wait( pid );
       break;
@@ -89,6 +86,7 @@ syscall_handler( struct intr_frame *f ) {
 
       if ( file_ptr == NULL )
         f->eax = -1;
+
       else {
         struct file_map *fmap = palloc_get_page( 0 );
         fmap->fd = thread_current()->next_fd++;
@@ -122,11 +120,12 @@ syscall_handler( struct intr_frame *f ) {
         struct file *read_file = get_file( &thread_current()->file_list, read_fd );
         if ( read_file == NULL ) {
           f->eax = -1;
-          return;
+          break;
         }
         else {
           acquire_file_lock();
-          f->eax = file_read( read_file, read_buffer, read_size );
+          file_read( read_file, read_buffer, read_size );
+          f->eax = read_size;
           release_file_lock();
         }
       }
@@ -149,11 +148,12 @@ syscall_handler( struct intr_frame *f ) {
         struct file *write_file = get_file( &thread_current()->file_list, write_fd );
         if ( write_file == NULL ) {
           f->eax = -1;
-          return;
+          break;
         }
 
         acquire_file_lock();
-        f->eax = file_write( write_file, write_buffer, write_size );
+        file_write( write_file, write_buffer, write_size );
+        f->eax = write_size;
         release_file_lock();
 
       }
@@ -174,7 +174,7 @@ syscall_handler( struct intr_frame *f ) {
 
       struct file_map *close_file_map = get_file_map( &thread_current()->file_list, close_fd );
       if ( close_file_map == NULL ) {
-        return;
+        break;
       }
       else {
         acquire_file_lock();

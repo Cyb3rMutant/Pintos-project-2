@@ -1,0 +1,17 @@
+{
+    "files.associations": {
+        "*html": "html",
+        "pagedir.h": "c",
+        "thread.h": "c",
+        "interrupt.h": "c",
+        "syscall.h": "c",
+        "syscall-nr.h": "c",
+        "stdio.h": "c",
+        "flags.h": "c",
+        "filesys.h": "c",
+        "stdbool.h": "c",
+        "tests.h": "c",
+        "file.h": "c",
+        "shutdown.h": "c"
+    }
+}

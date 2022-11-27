@@ -37,7 +37,6 @@ static bool load( const char *cmdline, void ( **eip ) ( void ), void **esp );
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
 process_execute( const char *file_name ) {
-  printf( "START\n" );
   char *fn_copy;
   char *f_name;
   tid_t tid;
@@ -63,7 +62,6 @@ process_execute( const char *file_name ) {
 
   if ( !thread_current()->success )
     return -1;
-  printf( "END\n" );
   return tid;
 }
 
@@ -107,7 +105,6 @@ static void push_arguements_on_stack( const char *argv[], int argc, void **esp )
    running. */
 static void
 start_process( void *file_name_ ) {
-  printf( "DOOMY\n" );
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -151,7 +148,6 @@ start_process( void *file_name_ ) {
     thread_current()->parent->success = true;
     sema_up( &thread_current()->parent->child_lock );
   }
-  printf( "TURTLE\n" );
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

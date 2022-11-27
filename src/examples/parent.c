@@ -31,22 +31,16 @@ int main( int argc, char *argv[] ) {
     depth = atoi( argv[1] ) - 1;
 
   for ( i = 0; i < CHILDREN; i++ ) {
-    if ( depth ) {
-      printf( "UP\n" );
+    if ( depth )
       snprintf( cmd, 10, "parent %i", depth );
-      printf( "DOWN\n" );
-    }
-    else {
-      printf( "some\n" );
+    else
       snprintf( cmd, 10, "child %i", i );
-      printf( "thing\n" );
-    }
 
     printf( "%s\n", cmd );
     pid[i] = exec( cmd );
   }
+
   //  if (depth <= 1)
-  printf( "HEREEEEEEEEE" );
   {
     for ( i = 0; i < CHILDREN; i++ ) {
       wait( pid[i] );
