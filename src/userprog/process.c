@@ -20,15 +20,6 @@
 #include "threads/synch.h"
 #include "threads/malloc.h"
 
-void close_files( struct list *f_list ) {
-  struct list_elem *e;
-  while ( !list_empty( f_list ) ) {
-    e = list_pop_front( f_list );
-    struct file_map *fmap = list_entry( e, struct file_map, elem );
-    file_close( fmap->file );
-    free( fmap );
-  }
-}
 static thread_func start_process NO_RETURN;
 static bool load( const char *cmdline, void ( **eip ) ( void ), void **esp );
 /* Starts a new thread running a user program loaded from
@@ -38,7 +29,6 @@ static bool load( const char *cmdline, void ( **eip ) ( void ), void **esp );
 tid_t
 process_execute( const char *file_name ) {
   char *fn_copy;
-  char *f_name;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -47,18 +37,14 @@ process_execute( const char *file_name ) {
   if ( fn_copy == NULL )
     return TID_ERROR;
   strlcpy( fn_copy, file_name, PGSIZE );
-  char *save_ptr;
-  f_name = malloc( strlen( file_name ) + 1 );
-  strlcpy( f_name, file_name, strlen( file_name ) + 1 );
-  f_name = strtok_r( f_name, " ", &save_ptr );
+
   /* Create a new thread to execute FILE_NAME. */
-  //printf("%d\n", thread_current()->tid);
-  tid = thread_create( f_name, PRI_DEFAULT, start_process, fn_copy );
-  free( f_name );
+  tid = thread_create( file_name, PRI_DEFAULT, start_process, fn_copy );
+
   if ( tid == TID_ERROR )
     palloc_free_page( fn_copy );
 
-  sema_down( &thread_current()->child_lock );
+  sema_down( &thread_current()->child_sema );
 
   if ( !thread_current()->success )
     return -1;
@@ -67,37 +53,34 @@ process_execute( const char *file_name ) {
 
 
 static void push_arguements_on_stack( const char *argv[], int argc, void **esp ) {
+  char *arg_ptr[argc]; // array of pointers to arguments in stack
 
-  int i, len = 0;
-  void *argv_addr[argc];
-
-  for ( i = argc - 1; i >= 0; i-- ) {
-    len = strlen( argv[i] ) + 1;
-    *esp -= len;
-    memcpy( *esp, argv[i], len );
-    argv_addr[i] = *esp;
+  // push arguments into stack
+  for ( int i = argc - 1; i >= 0; i-- ) {
+    memcpy( *esp -= ( strlen( argv[i] ) + 1 ), argv[i], strlen( argv[i] ) + 1 );
+    arg_ptr[i] = (char *)*esp;
   }
 
-  uint8_t word_align = (uint8_t)( *esp ) % 4;
+  // round esp to multiple of 4
+  int word_align = (uintptr_t)( *esp ) % 4;
   *esp -= word_align;
   memset( *esp, 0, word_align );
 
-  *esp -= 4;
-  *( (uint32_t *)*esp ) = 0;
+  //Add zeros for the argv terminator
+  memset( *esp -= 4, 0, 4 );
 
-  for ( i = argc - 1; i >= 0; i-- ) {
-    *esp -= 4;
-    *( (void **)*esp ) = argv_addr[i];
-  }
+  // push address of arguments into stack
+  for ( int i = argc - 1; i >= 0; i-- ) memcpy( *esp -= sizeof( char * ), &arg_ptr[i], sizeof( char * ) );
 
-  *esp -= 4;
-  *( (void **)*esp ) = ( *esp + 4 );
+  // push address to argv
+  char **argv_ptr = *esp;
+  memcpy( *esp -= sizeof( char ** ), &argv_ptr, sizeof( char ** ) );
 
-  *esp -= 4;
-  *( (int *)*esp ) = argc;
+  // push argc
+  memcpy( *esp -= sizeof( int ), &argc, sizeof( int ) );
 
-  *esp -= 4;
-  *( (int *)*esp ) = 0;
+  // push fake return address
+  memset( *esp -= 4, 0, 4 );
 
 }
 
@@ -116,8 +99,6 @@ start_process( void *file_name_ ) {
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load( file_name, &if_.eip, &if_.esp );
 
-
-
   const char **argv = (const char **)palloc_get_page( 0 );
 
   char *token;
@@ -132,7 +113,7 @@ start_process( void *file_name_ ) {
   push_arguements_on_stack( argv, argc, &if_.esp ); // pushing arguments into stack
 
   // DEBUG
-  // hex_dump( if_.esp, if_.esp, PHYS_BASE - if_.esp, true );
+  hex_dump( if_.esp, if_.esp, PHYS_BASE - if_.esp, true );
 
   palloc_free_page( argv );
 
@@ -140,13 +121,13 @@ start_process( void *file_name_ ) {
   palloc_free_page( file_name );
   if ( !success ) {
     //printf("%d %d\n",thread_current()->tid, thread_current()->parent->tid);
-    thread_current()->parent->success = false;
-    sema_up( &thread_current()->parent->child_lock );
+    thread_current()->parent->success = 0;
+    sema_up( &thread_current()->parent->child_sema );
     thread_exit();
   }
   else {
-    thread_current()->parent->success = true;
-    sema_up( &thread_current()->parent->child_lock );
+    thread_current()->parent->success = 1;
+    sema_up( &thread_current()->parent->child_sema );
   }
 
   /* Start the user process by simulating a return from an
@@ -174,28 +155,24 @@ process_wait( tid_t child_tid UNUSED ) {
   struct list_elem *e;
 
   struct child *ch = NULL;
-  struct list_elem *e1 = NULL;
 
-  for ( e = list_begin( &thread_current()->child_proc ); e != list_end( &thread_current()->child_proc );
+  for ( e = list_begin( &thread_current()->child_list ); e != list_end( &thread_current()->child_list );
     e = list_next( e ) ) {
-    struct child *f = list_entry( e, struct child, elem );
-    if ( f->tid == child_tid ) {
-      ch = f;
-      e1 = e;
+    struct child *temp = list_entry( e, struct child, elem );
+    if ( temp->tid == child_tid ) {
+      ch = temp;
+      break;
     }
   }
 
-
-  if ( !ch || !e1 )
-    return -1;
+  if ( ch == NULL ) return -1;
 
   thread_current()->waitingon = ch->tid;
 
   if ( !ch->used )
-    sema_down( &thread_current()->child_lock );
+    sema_down( &thread_current()->child_sema );
 
   int temp = ch->exit_code;
-  list_remove( e1 );
 
   return temp;
 }
@@ -208,13 +185,19 @@ process_exit( void ) {
 
   printf( "%s: exit_code(%d)\n", cur->name, cur->exit_code );
 
+  lock_acquire( &file_lock );
 
-  acquire_file_lock();
-  file_close( thread_current()->self );
-  close_files( &thread_current()->file_list );
-  release_file_lock();
+  file_close( cur->own_file ); // close its own file
 
+  /* close files owned by the process (Pintos-Project-2) */
+  while ( !list_empty( &cur->file_list ) ) {
+    struct file_descriptor *file_d = list_entry( list_pop_front( &cur->file_list ), struct file_descriptor, elem );
 
+    file_close( file_d->file );
+    free( file_d );
+  }
+
+  lock_release( &file_lock );
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -328,7 +311,7 @@ load( const char *file_name, void ( **eip ) ( void ), void **esp ) {
   bool success = false;
   int i;
 
-  acquire_file_lock();
+  lock_acquire( &file_lock );
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create();
   if ( t->pagedir == NULL )
@@ -429,11 +412,11 @@ load( const char *file_name, void ( **eip ) ( void ), void **esp ) {
 
   file_deny_write( file );
 
-  thread_current()->self = file;
+  thread_current()->own_file = file;
 
 done:
   /* We arrive here whether the load is successful or not. */
-  release_file_lock();
+  lock_release( &file_lock );
   return success;
 }
 

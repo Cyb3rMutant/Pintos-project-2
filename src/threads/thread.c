@@ -38,7 +38,6 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
-struct lock file_lock;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame {
@@ -196,8 +195,8 @@ thread_create( const char *name, int priority,
   struct child *c = malloc( sizeof( *c ) );
   c->tid = tid;
   c->exit_code = t->exit_code;
-  c->used = false;
-  list_push_back( &running_thread()->child_proc, &c->elem );
+  c->used = 0;
+  list_push_back( &running_thread()->child_list, &c->elem );
 
   old_level = intr_disable();
 
@@ -300,10 +299,13 @@ thread_exit( void ) {
   process_exit();
 #endif
 
+  struct thread *curr = thread_current();
 
-  while ( !list_empty( &thread_current()->child_proc ) ) {
-    struct file_map *f = list_entry( list_pop_front( &thread_current()->child_proc ), struct child, elem );
-    free( f );
+  /* clear all the child processes of the current thread before destroying it (Pintos-Project-2) */
+  while ( !list_empty( &curr->child_list ) ) {
+    struct file_descriptor *cp = list_entry( list_pop_front( &curr->child_list ), struct child, elem );
+
+    free( cp );
   }
 
 
@@ -311,8 +313,8 @@ thread_exit( void ) {
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable();
-  list_remove( &thread_current()->allelem );
-  thread_current()->status = THREAD_DYING;
+  list_remove( &curr->allelem );
+  curr->status = THREAD_DYING;
   schedule();
   NOT_REACHED();
 }
@@ -470,20 +472,19 @@ init_thread( struct thread *t, const char *name, int priority ) {
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
-  //t->is_kernel = is_kernel;
-  list_init( &t->child_proc );
-  t->parent = running_thread();
-  list_init( &t->file_list );
-  t->exit_code = -100;
+  list_init( &t->child_list ); // init child list
+  t->parent = running_thread(); // assign parent thread
+  list_init( &t->file_list ); // init file list
+  t->exit_code = 0; // set default exit code to 0
 
-  sema_init( &t->child_lock, 0 );
+  sema_init( &t->child_sema, 0 ); // init 
   t->waitingon = 0;
 
-  t->self = NULL;
+  t->own_file = NULL;
   old_level = intr_disable();
   list_push_back( &all_list, &t->allelem );
   intr_set_level( old_level );
-  t->next_fd = 2;
+  t->current_fd = 2;
 }
 
 
@@ -591,39 +592,20 @@ allocate_tid( void ) {
   return tid;
 }
 
-void
-acquire_file_lock( void ) {
-  lock_acquire( &file_lock );
-}
 
-void
-release_file_lock( void ) {
-  lock_release( &file_lock );
-}
-
-struct file_map *get_file_map( struct list *file_list, int fd ) {
+/* find file descriptor (pintos-project-2) */
+struct file_descriptor *get_file_descriptor( struct list *file_list, int fd ) {
   struct list_elem *e;
+
+  /* loop through the file list */
   for ( e = list_begin( file_list ); e != list_end( file_list ); e = list_next( e ) ) {
-    struct file_map *temp_fmap = list_entry( e, struct file_map, elem );
-    if ( temp_fmap->fd == fd ) {
-      return temp_fmap;
-    }
+    struct file_descriptor *file_d = list_entry( e, struct file_descriptor, elem ); // identify the file desriptor with elem
+
+    if ( file_d->fd == fd ) return file_d; // identify the file desciptor with fd
   }
 
   return NULL;
 }
-
-struct file *get_file( struct list *file_list, int fd ) {
-  struct file_map *temp_fmap = get_file_map( file_list, fd );
-
-  if ( temp_fmap == NULL ) {
-    return NULL;
-  }
-  else {
-    return temp_fmap->file;
-  }
-}
-
 
 
 /* Offset of `stack' member within `struct thread'.

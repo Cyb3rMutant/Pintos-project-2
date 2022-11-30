@@ -24,165 +24,166 @@ syscall_handler( struct intr_frame *f ) {
 
   void *esp = f->esp;
 
-  int syscall_no = *(int *)esp;
-
-  switch ( syscall_no ) {
+  switch ( *(int *)esp ) {
     case SYS_HALT:
+    {
       shutdown_power_off();
 
       NOT_REACHED();
+    }
 
-    case SYS_EXIT:
+    case SYS_EXIT: // (Pintos-Project-2)
     {
-      int status = *(int *)( esp + 4 );
-      struct list_elem *e;
+      int exit_code = *(int *)( esp + 4 );
+      struct thread *curr = thread_current();
 
-      for ( e = list_begin( &thread_current()->parent->child_proc ); e != list_end( &thread_current()->parent->child_proc );
+      struct list_elem *e;
+      /* find the process that has to exit amongst its siblings and set its exit code (Pintos-Prooject-2) */
+      for ( e = list_begin( &curr->parent->child_list ); e != list_end( &curr->parent->child_list );
         e = list_next( e ) ) {
-        struct child *f = list_entry( e, struct child, elem );
-        if ( f->tid == thread_current()->tid ) {
-          f->used = true;
-          f->exit_code = status;
+
+        struct child *cp = list_entry( e, struct child, elem );
+
+        if ( cp->tid == curr->tid ) {
+          cp->used = 1;
+          cp->exit_code = exit_code;
         }
       }
 
-      thread_current()->exit_code = status;
+      curr->exit_code = exit_code;
 
-      if ( thread_current()->parent->waitingon == thread_current()->tid )
-        sema_up( &thread_current()->parent->child_lock );
+      if ( curr->parent->waitingon == curr->tid )sema_up( &curr->parent->child_sema ); //increase sema if the exiting thread was in use
 
       thread_exit();
+
       MOT_REACHED();
     }
 
     case SYS_EXEC:
     {
-      char *cmd_line = *(char **)( esp + 4 );
-      f->eax = process_execute( cmd_line );
+      f->eax = process_execute( *(char **)( esp + 4 ) );
       break;
     }
 
     case SYS_WAIT:
     {
-      int pid = *(int *)( esp + 4 );
-      f->eax = process_wait( pid );
+      f->eax = process_wait( *(int *)( esp + 4 ) );
       break;
     }
 
     case SYS_CREATE:
+    {
       printf( "SYS_CREATE not implemented yet\n" );
       break;
-
+    }
     case SYS_REMOVE:
+    {
       printf( "SYS_REMOVE not implemented yet\n" );
       break;
+    }
 
     case SYS_OPEN:
     {
       char *file_name = *(char **)( esp + 4 );
-      acquire_file_lock();
-      struct file *file_ptr = filesys_open( file_name );
-      release_file_lock();
 
-      if ( file_ptr == NULL )
-        f->eax = -1;
+      /* open the file */
+      lock_acquire( &file_lock );
+      struct file *opened_file = filesys_open( file_name );
+      lock_release( &file_lock );
 
-      else {
-        struct file_map *fmap = palloc_get_page( 0 );
-        fmap->fd = thread_current()->next_fd++;
-        fmap->file = file_ptr;
-        list_push_back( &thread_current()->file_list, &fmap->elem );
-        f->eax = fmap->fd;
-      }
+      if ( opened_file == NULL ) { f->eax = -1; break; }
+
+      /* find and allocate a free page for the file descriptor */
+      struct file_descriptor *file_d = palloc_get_page( 0 );
+
+      f->eax = ( file_d->fd = thread_current()->current_fd++ );
+
+      file_d->file = opened_file;
+
+      /* push the file descriptor onto the list */
+      list_push_back( &thread_current()->file_list, &file_d->elem );
 
       break;
     }
 
     case SYS_FILESIZE:
+    {
       printf( "SYS_FILESIZE not implemented yet\n" );
       break;
+    }
 
     case SYS_READ:
     {
-      int read_fd = *(int *)( esp + 4 );
-      char *read_buffer = *(char **)( esp + 8 );
-      unsigned read_size = *(unsigned *)( esp + 12 );
+      int fd = *(int *)( esp + 4 );
+      char *buf = *(char **)( esp + 8 );
+      unsigned size = *(unsigned *)( esp + 12 );
 
-      if ( read_fd == 0 ) // read from keyboard
-      {
-        int i;
-        for ( i = 0; i < read_size; i++ ) {
-          read_buffer[i] = input_getc();
-        }
-        f->eax = read_size;
+      if ( fd == 0 ) for ( int i = 0; i < size; i++ ) buf[i] = input_getc(); // STDIN_FILENO
+
+      else { /* reading from a file */
+        /* find the file to read from */
+        struct file *file = get_file_descriptor( &thread_current()->file_list, fd )->file;
+        if ( file == NULL ) { f->eax = -1; break; }
+
+        lock_acquire( &file_lock );
+        size = file_read( file, buf, size );
+        lock_release( &file_lock );
       }
-      else {
-        struct file *read_file = get_file( &thread_current()->file_list, read_fd );
-        if ( read_file == NULL ) {
-          f->eax = -1;
-          break;
-        }
-        else {
-          acquire_file_lock();
-          file_read( read_file, read_buffer, read_size );
-          f->eax = read_size;
-          release_file_lock();
-        }
-      }
+      f->eax = size;
 
       break;
     }
 
     case SYS_WRITE:
     {
-      int write_fd = *(int *)( esp + 4 );
-      char *write_buffer = *(char **)( esp + 8 );
-      unsigned write_size = *(unsigned *)( esp + 12 );
+      int fd = *(int *)( esp + 4 );
+      char *buf = *(char **)( esp + 8 );
+      unsigned size = *(unsigned *)( esp + 12 );
 
-      if ( write_fd == 1 ) // writing to stdout
-      {
-        putbuf( write_buffer, write_size );
-        f->eax = write_size;
+      if ( fd == 1 ) putbuf( buf, size ); // STDOUT_FILENO
+
+      else { /* writing to a file */
+        /* find the file to write onto */
+        struct file *file = get_file_descriptor( &thread_current()->file_list, fd )->file;
+        if ( file == NULL ) { f->eax = -1; break; }
+
+        lock_acquire( &file_lock );
+        size = file_write( file, buf, size );
+        lock_release( &file_lock );
       }
-      else {
-        struct file *write_file = get_file( &thread_current()->file_list, write_fd );
-        if ( write_file == NULL ) {
-          f->eax = -1;
-          break;
-        }
+      f->eax = size;
 
-        acquire_file_lock();
-        file_write( write_file, write_buffer, write_size );
-        f->eax = write_size;
-        release_file_lock();
-
-      }
       break;
     }
 
     case SYS_SEEK:
+    {
       printf( "SYS_SEEK not implemented yet\n" );
       break;
+    }
 
     case SYS_TELL:
+    {
       printf( "SYS_TELL not implemented yet\n" );
       break;
+    }
 
     case SYS_CLOSE:
     {
-      int close_fd = *(int *)( esp + 4 );
+      struct file_descriptor *close_file_descriptor = get_file_descriptor( &thread_current()->file_list, *(int *)( esp + 4 ) );
+      if ( close_file_descriptor == NULL ) break;
 
-      struct file_map *close_file_map = get_file_map( &thread_current()->file_list, close_fd );
-      if ( close_file_map == NULL ) {
-        break;
-      }
-      else {
-        acquire_file_lock();
-        file_close( close_file_map->file );
-        release_file_lock();
-        list_remove( &close_file_map->elem );
-        palloc_free_page( close_file_map );
-      }
+      /* close the file */
+      lock_acquire( &file_lock );
+      file_close( close_file_descriptor->file );
+      lock_release( &file_lock );
+
+      /* remove the file descriptor from the list */
+      list_remove( &close_file_descriptor->elem );
+
+      /* free the page allocated for the closed file descriptor */
+      palloc_free_page( close_file_descriptor );
+
       break;
     }
 

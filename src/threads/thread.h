@@ -91,20 +91,20 @@ struct thread {
    /* Shared between thread.c and synch.c. */
    struct list_elem elem;              /* List element. */
 
-   bool success;
+   int success;
 
    int exit_code;
 
-   struct list child_proc;
+   struct list child_list;
    struct thread *parent;
 
-   struct file *self;
+   struct file *own_file;
 
    struct list file_list;              /* list of open files */
-   int next_fd;
+   int current_fd;
 
-   struct semaphore child_lock;
-   int waitingon;
+   struct semaphore child_sema;
+   tid_t waitingon;
 
 #ifdef USERPROG
    /* Owned by userprog/process.c. */
@@ -116,18 +116,19 @@ struct thread {
 
 
 struct child {
-   int tid;
+   tid_t tid;
    struct list_elem elem;
    int exit_code;
-   bool used;
+   int used;
 };
 
-
-struct file_map {
+/* a struct to map files with an fd and elem */
+struct file_descriptor {
    int fd;
    struct file *file;
    struct list_elem elem;
 };
+struct lock file_lock; // (pintos-project-2)
 
 
 /* If false (default), use round-robin scheduler.
@@ -167,9 +168,6 @@ int thread_get_recent_cpu( void );
 int thread_get_load_avg( void );
 
 
-void acquire_file_lock( void );
-void release_file_lock( void );
-struct file *get_file( struct list *, int );
-struct file_map *get_file_map( struct list *, int );
+struct file_descriptor *get_file_descriptor( struct list *, int );
 
 #endif /* threads/thread.h */
