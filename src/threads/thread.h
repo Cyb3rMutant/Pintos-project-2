@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/synch.h"
+
 /* States in a thread's life cycle. */
 enum thread_status {
    THREAD_RUNNING,     /* Running thread. */
@@ -91,36 +92,18 @@ struct thread {
    /* Shared between thread.c and synch.c. */
    struct list_elem elem;              /* List element. */
 
-   int success;
-
-   int exit_code;
-
-   struct list child_list;
-   struct thread *parent;
-
-   struct file *own_file;
-
    struct list file_list;              /* list of open files */
    int current_fd;
-
-   struct semaphore child_sema;
-   tid_t waitingon;
 
 #ifdef USERPROG
    /* Owned by userprog/process.c. */
    uint32_t *pagedir;                  /* Page directory. */
+   int exit_code;                      /* Exit code */
 #endif
    /* Owned by thread.c. */
    unsigned magic;                     /* Detects stack overflow. */
 };
 
-
-struct child {
-   tid_t tid;
-   struct list_elem elem;
-   int exit_code;
-   int used;
-};
 
 /* a struct to map files with an fd and elem */
 struct file_descriptor {

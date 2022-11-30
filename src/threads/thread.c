@@ -11,7 +11,6 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "threads/malloc.h"
 #include "filesys/file.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -176,7 +175,6 @@ thread_create( const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
-  enum intr_level old_level;
 
   ASSERT( function != NULL );
 
@@ -192,13 +190,6 @@ thread_create( const char *name, int priority,
   /* Initialize thread. */
   init_thread( t, name, priority );
   tid = t->tid = allocate_tid();
-  struct child *c = malloc( sizeof( *c ) );
-  c->tid = tid;
-  c->exit_code = t->exit_code;
-  c->used = 0;
-  list_push_back( &running_thread()->child_list, &c->elem );
-
-  old_level = intr_disable();
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame( t, sizeof * kf );
@@ -214,8 +205,6 @@ thread_create( const char *name, int priority,
   sf = alloc_frame( t, sizeof * sf );
   sf->eip = switch_entry;
   sf->ebp = 0;
-
-  intr_set_level( old_level );
 
   /* Add to run queue. */
   thread_unblock( t );
@@ -300,13 +289,6 @@ thread_exit( void ) {
 #endif
 
   struct thread *curr = thread_current();
-
-  /* clear all the child processes of the current thread before destroying it (Pintos-Project-2) */
-  while ( !list_empty( &curr->child_list ) ) {
-    struct file_descriptor *cp = list_entry( list_pop_front( &curr->child_list ), struct child, elem );
-
-    free( cp );
-  }
 
 
   /* Remove thread from all threads list, set our status to dying,
@@ -471,16 +453,11 @@ init_thread( struct thread *t, const char *name, int priority ) {
   t->stack = (uint8_t *)t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+#ifdef USERPROG
+  t->exit_code = 0;
+#endif
 
-  list_init( &t->child_list ); // init child list
-  t->parent = running_thread(); // assign parent thread
-  list_init( &t->file_list ); // init file list
-  t->exit_code = 0; // set default exit code to 0
-
-  sema_init( &t->child_sema, 0 ); // init 
-  t->waitingon = 0;
-
-  t->own_file = NULL;
+  list_init( &t->file_list );
   old_level = intr_disable();
   list_push_back( &all_list, &t->allelem );
   intr_set_level( old_level );

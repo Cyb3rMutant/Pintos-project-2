@@ -17,8 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "threads/synch.h"
-#include "threads/malloc.h"
+
 
 static thread_func start_process NO_RETURN;
 static bool load( const char *cmdline, void ( **eip ) ( void ), void **esp );
@@ -44,10 +43,6 @@ process_execute( const char *file_name ) {
   if ( tid == TID_ERROR )
     palloc_free_page( fn_copy );
 
-  sema_down( &thread_current()->child_sema );
-
-  if ( !thread_current()->success )
-    return -1;
   return tid;
 }
 
@@ -92,13 +87,6 @@ start_process( void *file_name_ ) {
   struct intr_frame if_;
   bool success;
 
-  /* Initialize interrupt frame and load executable. */
-  memset( &if_, 0, sizeof if_ );
-  if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
-  if_.cs = SEL_UCSEG;
-  if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load( file_name, &if_.eip, &if_.esp );
-
   const char **argv = (const char **)palloc_get_page( 0 );
 
   char *token;
@@ -109,6 +97,13 @@ start_process( void *file_name_ ) {
     token = strtok_r( NULL, " ", &save_ptr ) ) {
     argv[argc++] = token;
   }
+  /* Initialize interrupt frame and load executable. */
+  memset( &if_, 0, sizeof if_ );
+  if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+  if_.cs = SEL_UCSEG;
+  if_.eflags = FLAG_IF | FLAG_MBS;
+  success = load( file_name, &if_.eip, &if_.esp );
+
 
   push_arguements_on_stack( argv, argc, &if_.esp ); // pushing arguments into stack
 
@@ -120,16 +115,8 @@ start_process( void *file_name_ ) {
   /* If load failed, quit. */
   palloc_free_page( file_name );
   if ( !success ) {
-    //printf("%d %d\n",thread_current()->tid, thread_current()->parent->tid);
-    thread_current()->parent->success = 0;
-    sema_up( &thread_current()->parent->child_sema );
     thread_exit();
   }
-  else {
-    thread_current()->parent->success = 1;
-    sema_up( &thread_current()->parent->child_sema );
-  }
-
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -151,30 +138,7 @@ start_process( void *file_name_ ) {
    does nothing. */
 int
 process_wait( tid_t child_tid UNUSED ) {
-  //printf("Wait : %s %d\n",thread_current()->name, child_tid);
-  struct list_elem *e;
-
-  struct child *ch = NULL;
-
-  for ( e = list_begin( &thread_current()->child_list ); e != list_end( &thread_current()->child_list );
-    e = list_next( e ) ) {
-    struct child *temp = list_entry( e, struct child, elem );
-    if ( temp->tid == child_tid ) {
-      ch = temp;
-      break;
-    }
-  }
-
-  if ( ch == NULL ) return -1;
-
-  thread_current()->waitingon = ch->tid;
-
-  if ( !ch->used )
-    sema_down( &thread_current()->child_sema );
-
-  int temp = ch->exit_code;
-
-  return temp;
+  for ( ;;);
 }
 
 /* Free the current process's resources. */
@@ -184,20 +148,6 @@ process_exit( void ) {
   uint32_t *pd;
 
   printf( "%s: exit_code(%d)\n", cur->name, cur->exit_code );
-
-  lock_acquire( &file_lock );
-
-  file_close( cur->own_file ); // close its own file
-
-  /* close files owned by the process (Pintos-Project-2) */
-  while ( !list_empty( &cur->file_list ) ) {
-    struct file_descriptor *file_d = list_entry( list_pop_front( &cur->file_list ), struct file_descriptor, elem );
-
-    file_close( file_d->file );
-    free( file_d );
-  }
-
-  lock_release( &file_lock );
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -311,7 +261,6 @@ load( const char *file_name, void ( **eip ) ( void ), void **esp ) {
   bool success = false;
   int i;
 
-  lock_acquire( &file_lock );
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create();
   if ( t->pagedir == NULL )
@@ -319,16 +268,7 @@ load( const char *file_name, void ( **eip ) ( void ), void **esp ) {
   process_activate();
 
   /* Open executable file. */
-
-  char *fn_cp = malloc( strlen( file_name ) + 1 );
-  strlcpy( fn_cp, file_name, strlen( file_name ) + 1 );
-
-  char *save_ptr;
-  fn_cp = strtok_r( fn_cp, " ", &save_ptr );
-
-  file = filesys_open( fn_cp );
-
-  free( fn_cp );
+  file = filesys_open( file_name );
 
   if ( file == NULL ) {
     printf( "load: %s: open failed\n", file_name );
@@ -410,15 +350,12 @@ load( const char *file_name, void ( **eip ) ( void ), void **esp ) {
 
   success = true;
 
-  file_deny_write( file );
-
-  thread_current()->own_file = file;
-
 done:
   /* We arrive here whether the load is successful or not. */
-  lock_release( &file_lock );
+  file_close( file );
   return success;
 }
+
 
 /* load() helpers. */
 

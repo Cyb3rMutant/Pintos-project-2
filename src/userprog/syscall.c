@@ -35,25 +35,9 @@ syscall_handler( struct intr_frame *f ) {
     case SYS_EXIT: // (Pintos-Project-2)
     {
       int exit_code = *(int *)( esp + 4 );
-      struct thread *curr = thread_current();
-
-      struct list_elem *e;
-      /* find the process that has to exit amongst its siblings and set its exit code (Pintos-Prooject-2) */
-      for ( e = list_begin( &curr->parent->child_list ); e != list_end( &curr->parent->child_list );
-        e = list_next( e ) ) {
-
-        struct child *cp = list_entry( e, struct child, elem );
-
-        if ( cp->tid == curr->tid ) {
-          cp->used = 1;
-          cp->exit_code = exit_code;
-        }
-      }
-
-      curr->exit_code = exit_code;
-
-      if ( curr->parent->waitingon == curr->tid )sema_up( &curr->parent->child_sema ); //increase sema if the exiting thread was in use
-
+#ifdef USERPROG
+      thread_current()->exit_code = exit_code;
+#endif
       thread_exit();
 
       MOT_REACHED();
@@ -67,7 +51,7 @@ syscall_handler( struct intr_frame *f ) {
 
     case SYS_WAIT:
     {
-      f->eax = process_wait( *(int *)( esp + 4 ) );
+      printf( "SYS_WAIT not implemented yet\n" );
       break;
     }
 
