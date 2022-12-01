@@ -106,7 +106,7 @@ struct thread {
 
 
 /* a struct to map files with an fd and elem */
-struct file_descriptor {
+struct file_map {
    int fd;
    struct file *file;
    struct list_elem elem;
@@ -151,6 +151,6 @@ int thread_get_recent_cpu( void );
 int thread_get_load_avg( void );
 
 
-struct file_descriptor *get_file_descriptor( struct list *, int );
+struct file_map *get_file_map( int );
 
 #endif /* threads/thread.h */

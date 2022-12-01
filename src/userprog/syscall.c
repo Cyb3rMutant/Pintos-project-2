@@ -78,7 +78,7 @@ syscall_handler( struct intr_frame *f ) {
       if ( opened_file == NULL ) { f->eax = -1; break; }
 
       /* find and allocate a free page for the file descriptor */
-      struct file_descriptor *file_d = palloc_get_page( 0 );
+      struct file_map *file_d = palloc_get_page( 0 );
 
       f->eax = ( file_d->fd = thread_current()->current_fd++ );
 
@@ -106,7 +106,7 @@ syscall_handler( struct intr_frame *f ) {
 
       else { /* reading from a file */
         /* find the file to read from */
-        struct file *file = get_file_descriptor( &thread_current()->file_list, fd )->file;
+        struct file *file = get_file_map( fd )->file;
         if ( file == NULL ) { f->eax = -1; break; }
 
         lock_acquire( &file_lock );
@@ -128,7 +128,7 @@ syscall_handler( struct intr_frame *f ) {
 
       else { /* writing to a file */
         /* find the file to write onto */
-        struct file *file = get_file_descriptor( &thread_current()->file_list, fd )->file;
+        struct file *file = get_file_map( fd )->file;
         if ( file == NULL ) { f->eax = -1; break; }
 
         lock_acquire( &file_lock );
@@ -154,19 +154,19 @@ syscall_handler( struct intr_frame *f ) {
 
     case SYS_CLOSE:
     {
-      struct file_descriptor *close_file_descriptor = get_file_descriptor( &thread_current()->file_list, *(int *)( esp + 4 ) );
-      if ( close_file_descriptor == NULL ) break;
+      struct file_map *close_file_map = get_file_map( *(int *)( esp + 4 ) );
+      if ( close_file_map == NULL ) break;
 
       /* close the file */
       lock_acquire( &file_lock );
-      file_close( close_file_descriptor->file );
+      file_close( close_file_map->file );
       lock_release( &file_lock );
 
       /* remove the file descriptor from the list */
-      list_remove( &close_file_descriptor->elem );
+      list_remove( &close_file_map->elem );
 
       /* free the page allocated for the closed file descriptor */
-      palloc_free_page( close_file_descriptor );
+      palloc_free_page( close_file_map );
 
       break;
     }

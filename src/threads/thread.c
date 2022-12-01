@@ -571,12 +571,13 @@ allocate_tid( void ) {
 
 
 /* find file descriptor (pintos-project-2) */
-struct file_descriptor *get_file_descriptor( struct list *file_list, int fd ) {
+struct file_map *get_file_map( int fd ) {
+  struct list *file_list = &thread_current()->file_list;
   struct list_elem *e;
 
   /* loop through the file list */
   for ( e = list_begin( file_list ); e != list_end( file_list ); e = list_next( e ) ) {
-    struct file_descriptor *file_d = list_entry( e, struct file_descriptor, elem ); // identify the file desriptor with elem
+    struct file_map *file_d = list_entry( e, struct file_map, elem ); // identify the file desriptor with elem
 
     if ( file_d->fd == fd ) return file_d; // identify the file desciptor with fd
   }
