@@ -12,6 +12,10 @@
         "stdbool.h": "c",
         "tests.h": "c",
         "file.h": "c",
-        "shutdown.h": "c"
+        "shutdown.h": "c",
+        "string.h": "c",
+        "palloc.h": "c",
+        "input.h": "c",
+        "process.h": "c"
     }
 }

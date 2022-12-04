@@ -35,9 +35,11 @@ syscall_handler( struct intr_frame *f ) {
     case SYS_EXIT: // (Pintos-Project-2)
     {
       int exit_code = *(int *)( esp + 4 );
+
 #ifdef USERPROG
       thread_current()->exit_code = exit_code;
 #endif
+
       thread_exit();
 
       MOT_REACHED();
@@ -45,24 +47,31 @@ syscall_handler( struct intr_frame *f ) {
 
     case SYS_EXEC:
     {
-      f->eax = process_execute( *(char **)( esp + 4 ) );
+      char *file_name = *(char **)( esp + 4 );
+
+      f->eax = process_execute( file_name );
       break;
     }
 
     case SYS_WAIT:
     {
-      printf( "SYS_WAIT not implemented yet\n" );
+      printf( "SYS_WAIT not yet implemented\n" );
       break;
     }
 
     case SYS_CREATE:
     {
-      printf( "SYS_CREATE not implemented yet\n" );
+      printf( "SYS_CREATE not yet implemented\n" );
       break;
     }
     case SYS_REMOVE:
     {
-      printf( "SYS_REMOVE not implemented yet\n" );
+      char *file_name = *(char **)( esp + 4 );
+
+      lock_acquire( &file_lock );
+      f->eax = filesys_remove( file_name );
+      lock_release( &file_lock );
+
       break;
     }
 
@@ -92,7 +101,14 @@ syscall_handler( struct intr_frame *f ) {
 
     case SYS_FILESIZE:
     {
-      printf( "SYS_FILESIZE not implemented yet\n" );
+      int fd = *(int *)( esp + 4 );
+
+      struct file *file = get_file_map( fd )->file;
+      if ( file == NULL ) { f->eax = -1; break; }
+
+      lock_acquire( &file_lock );
+      f->eax = file_length( file );
+      lock_release( &file_lock );
       break;
     }
 
@@ -113,6 +129,7 @@ syscall_handler( struct intr_frame *f ) {
         size = file_read( file, buf, size );
         lock_release( &file_lock );
       }
+
       f->eax = size;
 
       break;
@@ -135,6 +152,7 @@ syscall_handler( struct intr_frame *f ) {
         size = file_write( file, buf, size );
         lock_release( &file_lock );
       }
+
       f->eax = size;
 
       break;
@@ -142,31 +160,33 @@ syscall_handler( struct intr_frame *f ) {
 
     case SYS_SEEK:
     {
-      printf( "SYS_SEEK not implemented yet\n" );
+      printf( "SYS_SEEK not yet implemented\n" );
       break;
     }
 
     case SYS_TELL:
     {
-      printf( "SYS_TELL not implemented yet\n" );
+      printf( "SYS_TELL not yet implemented\n" );
       break;
     }
 
     case SYS_CLOSE:
     {
-      struct file_map *close_file_map = get_file_map( *(int *)( esp + 4 ) );
-      if ( close_file_map == NULL ) break;
+      int fd = *(int *)( esp + 4 );
+
+      struct file_map *file_map = get_file_map( fd );
+      if ( file_map == NULL ) break;
 
       /* close the file */
       lock_acquire( &file_lock );
-      file_close( close_file_map->file );
+      file_close( file_map->file );
       lock_release( &file_lock );
 
       /* remove the file descriptor from the list */
-      list_remove( &close_file_map->elem );
+      list_remove( &file_map->elem );
 
       /* free the page allocated for the closed file descriptor */
-      palloc_free_page( close_file_map );
+      palloc_free_page( file_map );
 
       break;
     }
