@@ -92,7 +92,7 @@ struct thread {
    /* Shared between thread.c and synch.c. */
    struct list_elem elem;              /* List element. */
 
-   struct list file_list;              /* list of open files */
+   struct list file_list;
    int current_fd;
 
 #ifdef USERPROG
@@ -111,7 +111,7 @@ struct file_map {
    struct file *file;
    struct list_elem elem;
 };
-struct lock file_lock; // (pintos-project-2)
+struct lock file_lock;
 
 
 /* If false (default), use round-robin scheduler.

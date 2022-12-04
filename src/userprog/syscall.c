@@ -32,7 +32,7 @@ syscall_handler( struct intr_frame *f ) {
       NOT_REACHED();
     }
 
-    case SYS_EXIT: // (Pintos-Project-2)
+    case SYS_EXIT:
     {
       int exit_code = *(int *)( esp + 4 );
 
@@ -81,20 +81,20 @@ syscall_handler( struct intr_frame *f ) {
 
       /* open the file */
       lock_acquire( &file_lock );
-      struct file *opened_file = filesys_open( file_name );
+      struct file *file = filesys_open( file_name );
       lock_release( &file_lock );
 
-      if ( opened_file == NULL ) { f->eax = -1; break; }
+      if ( file == NULL ) { f->eax = -1; break; }
 
       /* find and allocate a free page for the file descriptor */
-      struct file_map *file_d = palloc_get_page( 0 );
+      struct file_map *file_m = palloc_get_page( 0 ); // (wookayin, 2015)
 
-      f->eax = ( file_d->fd = thread_current()->current_fd++ );
+      f->eax = ( file_m->fd = thread_current()->current_fd++ );
 
-      file_d->file = opened_file;
+      file_m->file = file;
 
       /* push the file descriptor onto the list */
-      list_push_back( &thread_current()->file_list, &file_d->elem );
+      list_push_back( &thread_current()->file_list, &file_m->elem );
 
       break;
     }
@@ -120,7 +120,7 @@ syscall_handler( struct intr_frame *f ) {
 
       if ( fd == 0 ) for ( int i = 0; i < size; i++ ) buf[i] = input_getc(); // STDIN_FILENO
 
-      else { /* reading from a file */
+      else { /* reading from a file */ // (cyoon47, 2017)
         /* find the file to read from */
         struct file *file = get_file_map( fd )->file;
         if ( file == NULL ) { f->eax = -1; break; }
@@ -186,7 +186,7 @@ syscall_handler( struct intr_frame *f ) {
       list_remove( &file_map->elem );
 
       /* free the page allocated for the closed file descriptor */
-      palloc_free_page( file_map );
+      palloc_free_page( file_map ); // (wookayin, 2015)
 
       break;
     }
@@ -196,3 +196,14 @@ syscall_handler( struct intr_frame *f ) {
       break;
   }
 }
+
+
+
+
+/* references:
+ *
+ * wookayin (2015) pintos (master). Available from: https://github.com/wookayin/pintos [Accessed 04 December 2022]
+ *
+ * cyoon47 (2017) pintos-project-2 (master). Available from: https://github.com/cyoon47/pintos-project-2 [Accessed 04 December 2022]
+ *
+ */

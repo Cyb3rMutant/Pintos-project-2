@@ -47,36 +47,34 @@ process_execute( const char *file_name ) {
 }
 
 
-static void push_arguements_on_stack( const char *argv[], int argc, void **esp ) {
-  char *arg_ptr[argc]; // array of pointers to arguments in stack
+void push_arguements_on_stack( const char *argv[], int argc, void **esp ) {
+  char *arg_ptr[argc]; // array of pointers to store arguments addresses on stack
 
   // push arguments into stack
   for ( int i = argc - 1; i >= 0; i-- ) {
     memcpy( *esp -= ( strlen( argv[i] ) + 1 ), argv[i], strlen( argv[i] ) + 1 );
-    arg_ptr[i] = (char *)*esp;
+
+    arg_ptr[i] = (char *)*esp; // save the pointer to the argument
   }
 
-  // round esp to multiple of 4
-  int word_align = (uintptr_t)( *esp ) % 4;
-  *esp -= word_align;
-  memset( *esp, 0, word_align );
+  // align the stack to 4 bytes
+  int word_align = (uintptr_t)( *esp ) % 4; // get the remaining number of bytes to complete 4 bytes
+  memset( *esp -= word_align, 0, word_align ); // set the word align to zeros 
 
-  //Add zeros for the argv terminator
+  // add a null terminator to incdicate end of arguments
   memset( *esp -= 4, 0, 4 );
 
-  // push address of arguments into stack
+  // push addresses of arguments into stack
   for ( int i = argc - 1; i >= 0; i-- ) memcpy( *esp -= sizeof( char * ), &arg_ptr[i], sizeof( char * ) );
 
-  // push address to argv
-  char **argv_ptr = *esp;
-  memcpy( *esp -= sizeof( char ** ), &argv_ptr, sizeof( char ** ) );
+  // push address of first argv address
+  memcpy( *esp -= sizeof( char ** ), *esp + sizeof( char ** ), sizeof( char ** ) );
 
   // push argc
   memcpy( *esp -= sizeof( int ), &argc, sizeof( int ) );
 
   // push fake return address
   memset( *esp -= 4, 0, 4 );
-
 }
 
 /* A thread function that loads a user process and starts it
@@ -87,12 +85,14 @@ start_process( void *file_name_ ) {
   struct intr_frame if_;
   bool success;
 
-  const char **argv = (const char **)palloc_get_page( 0 );
+  // find and allocate a free page for the tokenized arguments
+  const char **argv = (const char **)palloc_get_page( 0 ); // (wookayin, 2015)
 
   char *token;
   char *save_ptr;
   int argc = 0;
 
+  // tokenization 
   for ( token = strtok_r( file_name, " ", &save_ptr ); token != NULL;
     token = strtok_r( NULL, " ", &save_ptr ) )
     argv[argc++] = token;
@@ -499,3 +499,10 @@ install_page( void *upage, void *kpage, bool writable ) {
 }
 
 //--------------------------------------------------------------------
+
+
+/* references:
+ *
+ * wookayin (2015) pintos (f85b47b4df5c64a1bf6e7164b83d6c95074795b0). Available from: https://github.com/wookayin/pintos [Accessed 04 December 2022]
+ *
+ */
