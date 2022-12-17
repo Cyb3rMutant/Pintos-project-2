@@ -47,33 +47,91 @@ process_execute( const char *file_name ) {
 }
 
 
-void push_arguements_on_stack( const char *argv[], int argc, void **esp ) {
-  char *arg_ptr[argc]; // array of pointers to store arguments addresses on stack
+void push_arguments_on_stack( const char *argv[], int argc, void **esp ) {
+  /* an array used to store the address of
+   * the extended stack pointer (esp) after an
+   * argument has been pushed in step 2,
+   * to be later used to push these stored
+   *  address on the stack in step 4
+   */
+  char *arg_ptr[argc];
 
-  // push arguments into stack
+  /*** Setting up the stack step 2 ***/
+  /*** push arguments into stack ***
+   *
+   * loop through the number of arguments backwards,
+   * and with each iteration decrement esp by the
+   * lengeth of the argument + a null terminator
+   * then copy the string of the argument to esp
+   * (push it on the stack). in addition to that,
+   * the address of esp after being moved is stored
+   * to be pushed later in step 4
+  */
   for ( int i = argc - 1; i >= 0; i-- ) {
     memcpy( *esp -= ( strlen( argv[i] ) + 1 ), argv[i], strlen( argv[i] ) + 1 );
 
     arg_ptr[i] = (char *)*esp; // save the pointer to the argument
   }
 
-  // align the stack to 4 bytes
+  /*** Setting up the stack step 3 ***/
+  /*** align the stack to 4 bytes ***
+   *
+   * due to the arguemnts' size not being guaranteed to
+   * be a multiple of 4, we will need to fill the remaining
+   * bytes to complete 4 bytes block. to do that we take the
+   * remainder of dividing the integer value of esp by 4, then
+   * set these bytes to 0 (or null). after that we need to set
+   * the next 4 byte-block to 0 to act as a null terminator for
+   * our command line argument string.
+   */
   int word_align = (uintptr_t)( *esp ) % 4; // get the remaining number of bytes to complete 4 bytes
   memset( *esp -= word_align, 0, word_align ); // set the word align to zeros 
 
-  // add a null terminator to incdicate end of arguments
-  memset( *esp -= 4, 0, 4 );
+  memset( *esp -= 4, 0, 4 ); // add a null terminator to indicate end of arguments
 
-  // push addresses of arguments into stack
-  for ( int i = argc - 1; i >= 0; i-- ) memcpy( *esp -= sizeof( char * ), &arg_ptr[i], sizeof( char * ) );
+  /*** Setting up the stack step 4 ***/
+  /*** push addresses of arguments into stack ***
+   *
+   * now we need to push the addresses at of which our
+   * arguments reside at using the array we created at
+   * the start of the funciton. since the array is of type
+   * character pointer, we will need to decrement esp by the
+   * size of character pointer, and then copy the argument address
+   * to there. the loop is going backwards through argc again.
+  */
+  for ( int i = argc - 1; i >= 0; i-- ) {
+    memcpy( *esp -= sizeof( char * ), &arg_ptr[i], sizeof( char * ) );
+  }
 
-  // push address of first argv address
+  /*** Setting up the stack step 5 ***/
+  /*** push address of first argv address ***
+   *
+   * now we need to push the address of esp where the address
+   * the first argument is stored, which is the current location
+   * of esp since it is the last argument to be pushed. to do that,
+   * we decrement esp by the size of a character pointer pointer,
+   * and copy the content of esp before decremneting (by incrementing
+   * again)
+  */
   memcpy( *esp -= sizeof( char ** ), *esp + sizeof( char ** ), sizeof( char ** ) );
 
-  // push argc
+  /*** Setting up the stack step 6 ***/
+  /*** push argc ***
+   *
+   * now we need to push the number of arguments to the stack
+   * for it to be able to know how many addresses it needs to
+   * use. can be done by decrementing esp by the size of an integer
+   * and copying argc there.
+  */
   memcpy( *esp -= sizeof( int ), &argc, sizeof( int ) );
 
-  // push fake return address
+  /*** Setting up the stack step 7 ***/
+  /*** push fake return address ***
+   *
+   * finally we set the last 4 bytes to zero to act as
+   * a fake return address because this is how stacks
+   * are usually made
+  */
   memset( *esp -= 4, 0, 4 );
 }
 
@@ -85,16 +143,26 @@ start_process( void *file_name_ ) {
   struct intr_frame if_;
   bool success;
 
-  // find and allocate a free page for the tokenized arguments
+  /*** Setting up the stack step 1 ***/
+  /*** find and allocate a free page for the tokenized arguments ***
+  *
+  * the reason for using palloc instead of malloc
+  * is that we don't the number of arguments, so we
+  * can't decide how much do we need. but palloc on the
+  * other hand will return a full page in memory.
+  * another way to do it would be to hard code the size
+  * to a big number of arguments (i.e. *argv[128])
+  */
   const char **argv = (const char **)palloc_get_page( 0 ); // (wookayin, 2015)
 
-  char *token;
-  char *save_ptr;
-  int argc = 0;
+  char *token; // used to store the tokenized argument returned by strtok_r
+  char *save_ptr; // used to save the last location strtok_r has reached and tokenized
+  int argc = 0; // number of arguements 
 
   // tokenization 
   for ( token = strtok_r( file_name, " ", &save_ptr ); token != NULL;
     token = strtok_r( NULL, " ", &save_ptr ) )
+    // store the token returned by strtok_r in the argv array and increment argc afterwards
     argv[argc++] = token;
 
   /* Initialize interrupt frame and load executable. */
@@ -105,7 +173,8 @@ start_process( void *file_name_ ) {
   success = load( file_name, &if_.eip, &if_.esp );
 
 
-  push_arguements_on_stack( argv, argc, &if_.esp ); // pushing arguments into stack
+  /*** Setting up the stack step 2-7 ***/
+  push_arguments_on_stack( argv, argc, &if_.esp ); // pushing arguments into stack
 
   // DEBUG
   hex_dump( if_.esp, if_.esp, PHYS_BASE - if_.esp, true );

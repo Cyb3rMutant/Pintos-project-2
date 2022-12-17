@@ -206,7 +206,7 @@ int main( int argc, char *argv[] ) {
 // ; filesize( fd )
 // push   edx               ; push fd as arg1
 // push   0x7               ; push syscall number for filesize
-// int    0x30              ; copy fd to edx register
+// int    0x30              ; interruprt for syscall
 // mov    ecx, eax          ; copy the size of the file to ecx register
 
 // ; read( fd, buf, size )

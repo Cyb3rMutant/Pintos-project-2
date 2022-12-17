@@ -92,25 +92,58 @@ struct thread {
    /* Shared between thread.c and synch.c. */
    struct list_elem elem;              /* List element. */
 
-   struct list file_list;
-   int current_fd;
+   /* a linked list that is used to
+    * keep track of the opened files'
+    * file maps using their elem element,
+    * in a running thread
+    */
+   struct list file_list;              /* list of opened files */
+
+   /* used to keep track of how many
+    * have been opened for a thread
+    * and is also used to assing an
+    * fd to each file when it is opened
+    * and then gets incremented.
+    * it starts at a value of 2
+    * because 0 is STD_IN and 1 is
+    * STD_OUT
+   */
+   int current_fd;                     /* give a file its fd number */
 
 #ifdef USERPROG
    /* Owned by userprog/process.c. */
    uint32_t *pagedir;                  /* Page directory. */
+
+   /* used to store the exit status
+    * of a user programme when
+    * it exits using sys_exit or
+    * fails to open
+    */
    int exit_code;                      /* Exit code */
 #endif
    /* Owned by thread.c. */
    unsigned magic;                     /* Detects stack overflow. */
 };
 
-
-/* a struct to map files with an fd and elem */
+/* a struct that is used to map a file
+ * to the file descriptor (fd) number
+ * it was given from its parent thread
+ * and it contains a pointer to the
+ * opened file itself, and finally a
+ * list element used to identify a file
+ * in the file list liked list of its
+ * thread owner
+ */
 struct file_map {
    int fd;
    struct file *file;
    struct list_elem elem;
 };
+
+/* a lock that is used to prevent
+ * access when a file is being
+ * operated on for synchronization
+ */
 struct lock file_lock;
 
 

@@ -94,7 +94,7 @@ thread_init( void ) {
   list_init( &ready_list );
   list_init( &all_list );
 
-  lock_init( &file_lock );
+  lock_init( &file_lock ); // init the file lock normally
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread();
@@ -453,15 +453,28 @@ init_thread( struct thread *t, const char *name, int priority ) {
   t->stack = (uint8_t *)t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
 #ifdef USERPROG
   t->exit_code = 0;
 #endif
 
+  /* init the file list linked list of
+   * for the newly created thread to be
+   * used to keep track of the opened
+   * files of a thread
+   */
   list_init( &t->file_list );
+
+  /* set the initial value for fd to
+   * 2 because 0 and 1 are already
+   * reserved for STD_IN and STD_OUT
+   * respectively
+   */
+  t->current_fd = 2;
+
   old_level = intr_disable();
   list_push_back( &all_list, &t->allelem );
   intr_set_level( old_level );
-  t->current_fd = 2;
 }
 
 
@@ -572,10 +585,24 @@ allocate_tid( void ) {
 
 /* find file descriptor */ // (cyoon47, 2017)
 struct file_map *get_file_map( int fd ) {
+  /* get the file list linked list
+   * of the current running thread
+   * to be searched for the file.
+   * note that if process wait
+   * was implemented, the file list
+   * will have to be passed to the function
+   */
   struct list *file_list = &thread_current()->file_list;
   struct list_elem *e;
 
-  /* loop through the file list */
+  /* loop through the file list linked list from its
+   * first element until the last, and by finding the
+   * next element using the current list element.
+   * with every iterationthe list_entry macro is used
+   * to return the file map struct for the current
+   * list elem. and then compare the value of fd of
+   * the constructed file map to the one we need.
+   */
   for ( e = list_begin( file_list ); e != list_end( file_list ); e = list_next( e ) ) {
     struct file_map *file_m = list_entry( e, struct file_map, elem ); // identify the file desriptor with elem
 

@@ -22,31 +22,73 @@ syscall_init( void ) {
 static void
 syscall_handler( struct intr_frame *f ) {
 
-  void *esp = f->esp;
+  void *esp = f->esp; // store the stack pointer for ease
 
+  /* retrieve the system call number
+   * by casting esp with an int pointer
+   * and then dereferencing it to get
+   * the value residing there. then we
+   * pass it to a switch statement to
+   * decide which system call is being
+   * executed.
+   *
+   * note that in order to get any
+   * subsequent arguments passed with
+   * the system call number, we will need
+   * to add 4 to esp for each argument, and
+   * then cast esp the pointer of the
+   * required data type (because esp is a
+   *  void pointer, so it can be made to
+   * anything with a cast) for the argument
+   * and finally derefereing it to get the value
+  */
   switch ( *(int *)esp ) {
     case SYS_HALT:
     {
+      /* calling shutdown_power_off
+       * as can be seen in
+       * threads/init.c for when the
+       * -q flag is set
+       */
       shutdown_power_off();
 
+      // used for debugging
       NOT_REACHED();
     }
 
     case SYS_EXIT:
     {
+      /* before exiting, if the exiting
+       * thread is a user programme,
+       * we need to retrieve the exit
+       * code for esp and then set it
+       * for the current thread.
+       * */
+#ifdef USERPROG
       int exit_code = *(int *)( esp + 4 );
 
-#ifdef USERPROG
       thread_current()->exit_code = exit_code;
 #endif
 
       thread_exit();
 
+      // used for debugging
       MOT_REACHED();
     }
 
     case SYS_EXEC:
     {
+      /* retrieve the first argument which
+       * is the commad line to run, and
+       * simply pass it to process execute
+       * which will take care of everything
+       * else.
+       *
+       * note that the function will not return
+       * to caller due to the infinite for loop
+       * in process_wait() due to child processes
+       * not being implemented
+       */
       char *file_name = *(char **)( esp + 4 );
 
       f->eax = process_execute( file_name );
@@ -66,6 +108,16 @@ syscall_handler( struct intr_frame *f ) {
     }
     case SYS_REMOVE:
     {
+      /* retrieve the name of the file to remove
+       * from the system, and then we need to lock
+       * the file system to make sure the file to
+       * be removed is not used anywhere (if it is
+       * a kernel panic will happen) and to block any
+       * future access until the removal is complete
+       * then release the file system lock.
+       *
+       * finally a status of success or fail will be returned
+       * */
       char *file_name = *(char **)( esp + 4 );
 
       lock_acquire( &file_lock );
