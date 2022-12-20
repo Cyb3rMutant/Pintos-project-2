@@ -5,7 +5,7 @@
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 #include "filesys/filesys.h"
-#include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "devices/input.h"
 #include "filesys/file.h"
 #include "userprog/process.h"
@@ -139,7 +139,7 @@ syscall_handler( struct intr_frame *f ) {
       if ( file == NULL ) { f->eax = -1; break; }
 
       /* find and allocate a free page for the file descriptor */
-      struct file_map *file_m = palloc_get_page( 0 ); // (wookayin, 2015)
+      struct file_map *file_m = (struct file_map *)malloc( sizeof( struct file_map * ) );
 
       f->eax = ( file_m->fd = thread_current()->current_fd++ );
 
@@ -238,7 +238,7 @@ syscall_handler( struct intr_frame *f ) {
       list_remove( &file_map->elem );
 
       /* free the page allocated for the closed file descriptor */
-      palloc_free_page( file_map ); // (wookayin, 2015)
+      free( file_map );
 
       break;
     }
@@ -253,8 +253,6 @@ syscall_handler( struct intr_frame *f ) {
 
 
 /* references:
- *
- * wookayin (2015) pintos (master). Available from: https://github.com/wookayin/pintos [Accessed 04 December 2022]
  *
  * cyoon47 (2017) pintos-project-2 (master). Available from: https://github.com/cyoon47/pintos-project-2 [Accessed 04 December 2022]
  *

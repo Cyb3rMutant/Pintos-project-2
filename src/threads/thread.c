@@ -587,27 +587,24 @@ allocate_tid( void ) {
 struct file_map *get_file_map( int fd ) {
   /* get the file list linked list
    * of the current running thread
-   * to be searched for the file.
-   * note that if process wait
-   * was implemented, the file list
    * will have to be passed to the function
    */
   struct list *file_list = &thread_current()->file_list;
 
   /* loop through the file list linked list from its
-   * first element until the last, and by finding the
-   * next element using the current list element.
-   * with every iterationthe list_entry macro is used
-   * to return the file map struct for the current
-   * list elem. and then compare the value of fd of
-   * the constructed file map to the one we need.
+   * first element until the last, and with every
+   * iteration, retrieve the file mep that owns the
+   * list elem using list_entry macro. and then
+   * compare the value of fd of the constructed
+   * file map to the one we need and return it
+   * if they are equal. return null if not found
    */
   struct list_elem *e = list_begin( file_list );
   while ( e != list_end( file_list ) ) {
-    e = list_next( e );
     struct file_map *file_m = list_entry( e, struct file_map, elem ); // identify the file desriptor with elem
 
     if ( file_m->fd == fd ) return file_m; // identify the file desciptor with fd
+    e = list_next( e );
   }
 
   return NULL;
