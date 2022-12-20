@@ -113,7 +113,8 @@ void push_arguments_on_stack( const char *argv[], int argc, void **esp ) {
    * and copy the content of esp before decremneting (by incrementing
    * again)
   */
-  memcpy( *esp -= sizeof( char ** ), *esp + sizeof( char ** ), sizeof( char ** ) );
+  char **argv_ptr = *esp;
+  memcpy( *esp -= sizeof( char ** ), &argv_ptr, sizeof( char ** ) );
 
   /*** Setting up the stack step 6 ***/
   /*** push argc ***
