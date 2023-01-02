@@ -96,7 +96,7 @@ struct thread {
     * keep track of the opened files'
     * file maps using their elem element,
     * in a running thread
-    */
+   */
    struct list file_list;              /* list of opened files */
 
    /* used to keep track of how many
@@ -118,7 +118,7 @@ struct thread {
     * of a user programme when
     * it exits using sys_exit or
     * fails to open
-    */
+   */
    int exit_code;                      /* Exit code */
 #endif
    /* Owned by thread.c. */
@@ -133,7 +133,7 @@ struct thread {
  * list element used to identify a file
  * in the file list liked list of its
  * thread owner
- */
+*/
 struct file_map {
    int fd;
    struct file *file;
@@ -143,7 +143,7 @@ struct file_map {
 /* a lock that is used to prevent
  * access when a file is being
  * operated on for synchronization
- */
+*/
 struct lock file_lock;
 
 

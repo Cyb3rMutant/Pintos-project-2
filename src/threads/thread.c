@@ -182,6 +182,11 @@ thread_create( const char *name, int priority,
   t = palloc_get_page( PAL_ZERO );
   if ( t == NULL ) {
 #ifdef USERPROG
+    /* initialize the exit code
+     * to 1, and it will be changed
+     * in when the process exits
+     * and sys_exit gets called
+    */
     thread_current()->exit_code = 1;
 #endif
     return TID_ERROR;
@@ -587,8 +592,10 @@ allocate_tid( void ) {
 struct file_map *get_file_map( int fd ) {
   /* get the file list linked list
    * of the current running thread
-   * will have to be passed to the function
-   */
+   * as it will be used to retrieve
+   * file maps until we find the one
+   * matching fd
+  */
   struct list *file_list = &thread_current()->file_list;
 
   /* loop through the file list linked list from its
@@ -598,15 +605,41 @@ struct file_map *get_file_map( int fd ) {
    * compare the value of fd of the constructed
    * file map to the one we need and return it
    * if they are equal. return null if not found
-   */
-  struct list_elem *e = list_begin( file_list );
-  while ( e != list_end( file_list ) ) {
-    struct file_map *file_m = list_entry( e, struct file_map, elem ); // identify the file desriptor with elem
+  */
 
-    if ( file_m->fd == fd ) return file_m; // identify the file desciptor with fd
+  /* get the first element in the
+   * file list
+  */
+  struct list_elem *e = list_begin( file_list );
+
+  /* loop through the file list
+   * until the list element is
+   * equal to the end of the list
+  */
+  while ( e != list_end( file_list ) ) {
+    /* reconstruct the file map that
+     * owns the list elem we reached
+     * in the loop, using a macro that
+     * builds structs from a list elem
+    */
+    struct file_map *file_m = list_entry( e, struct file_map, elem ); // identify the file map with elem
+
+    /* check if the constructed file map
+     * file descriptor is equal to the
+     * file descriptor we need, if so
+     * return it*/
+    if ( file_m->fd == fd ) return file_m; // identify the file map with fd
+
+    /* otherwise find the next list elem
+     * in the file list to check its
+     * file map
+    */
     e = list_next( e );
   }
 
+  /* if the file map was not found
+   * return null
+  */
   return NULL;
 }
 

@@ -53,7 +53,7 @@ void push_arguments_on_stack( const char *argv[], int argc, void **esp ) {
    * argument has been pushed in step 2,
    * to be later used to push these stored
    *  address on the stack in step 4
-   */
+  */
   char *arg_ptr[argc];
 
   /*** Setting up the stack step 2 ***/
@@ -83,7 +83,7 @@ void push_arguments_on_stack( const char *argv[], int argc, void **esp ) {
    * set these bytes to 0 (or null). after that we need to set
    * the next 4 byte-block to 0 to act as a null terminator for
    * our command line argument string.
-   */
+  */
   int word_align = (uintptr_t)( *esp ) % 4; // get the remaining number of bytes to complete 4 bytes
   memset( *esp -= word_align, 0, word_align ); // set the word align to zeros 
 
@@ -145,16 +145,12 @@ start_process( void *file_name_ ) {
   bool success;
 
   /*** Setting up the stack step 1 ***/
-  /*** find and allocate a free page for the tokenized arguments ***
-  *
-  * the reason for using palloc instead of malloc
-  * is that we don't the number of arguments, so we
-  * can't decide how much do we need. but palloc on the
-  * other hand will return a full page in memory.
-  * another way to do it would be to hard code the size
-  * to a big number of arguments (i.e. *argv[128])
+  /*** tokenize arguments ***
+   * the reason for the array having a max
+   * size of 128 is because pintos crashes
+   * when the command line exceeds 128 bytes
   */
-  const char **argv = (const char **)palloc_get_page( 0 ); // (wookayin, 2015)
+  const char **argv[128];
 
   char *token; // used to store the tokenized argument returned by strtok_r
   char *save_ptr; // used to save the last location strtok_r has reached and tokenized
@@ -179,8 +175,6 @@ start_process( void *file_name_ ) {
 
   // DEBUG
   hex_dump( if_.esp, if_.esp, PHYS_BASE - if_.esp, true );
-
-  palloc_free_page( argv );
 
   /* If load failed, quit. */
   palloc_free_page( file_name );
@@ -569,10 +563,3 @@ install_page( void *upage, void *kpage, bool writable ) {
 }
 
 //--------------------------------------------------------------------
-
-
-/* references:
- *
- * wookayin (2015) pintos (f85b47b4df5c64a1bf6e7164b83d6c95074795b0). Available from: https://github.com/wookayin/pintos [Accessed 04 December 2022]
- *
- */
