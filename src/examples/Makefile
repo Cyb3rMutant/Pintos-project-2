@@ -7,7 +7,7 @@ PROGS = cat cmp cp echo halt hex-dump ls mcat mcp mkdir pwd rm shell \
 	bubsort insult lineup matmult recursor \
 	sumargv pfs pfs_reader pfs_writer dummy longrun \
 	child parent generic_parent longrun_interactive busy \
-	line_echo file_syscall_tests longrun_nowait shellcode \
+	line_echo file_syscall_tests longrun_nowait shellcode shellcode_yazeed shellcodeRoh hack\
 	crack overflow dir_stress create_file create_remove_file \
 	wait_test slow_child
 
@@ -27,6 +27,9 @@ generic_parent_SRC = generic_parent.c
 line_echo_SRC = line_echo.c
 file_syscall_tests_SRC = file_syscall_tests.c
 shellcode_SRC = shellcode.c
+shellcode_yazeed_SRC = shellcode_yazeed.c
+shellcodeRoh_SRC = shellcodeRoh.c
+hack_SRC = hack.c
 crack_SRC = crack.c
 overflow_SRC = overflow.c
 dir_stress_SRC = dir_stress.c
