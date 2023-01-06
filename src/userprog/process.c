@@ -99,9 +99,8 @@ void push_arguments_on_stack( const char *argv[], int argc, void **esp ) {
    * size of character pointer, and then copy the argument address
    * to there. the loop is going backwards through argc again.
   */
-  for ( int i = argc - 1; i >= 0; i-- ) {
+  for ( int i = argc - 1; i >= 0; i-- )
     memcpy( *esp -= sizeof( char * ), &arg_ptr[i], sizeof( char * ) );
-  }
 
   /*** Setting up the stack step 5 ***/
   /*** push address of first argv address ***
