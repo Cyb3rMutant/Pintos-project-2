@@ -1,8 +1,14 @@
+/*
+    References:
+   BaCkSpAcE [sinisa86@gmail.com]. (2006), execve() shellcode with 'fuck up disasm' ability, 32 bytes long. Available from: https://shell-storm.org/shellcode/files/shellcode-237.html [Accessed 10/12/2022]
+*/
+
+
 #include <stdio.h>
 #include <string.h>
 
 //To Run:
-//pintos -q rm shellcode;pintos -q rm hacc;pintos -q rm cat;cd ../../examples/;make;cd ../userprog/build/;pintos -v -p ../../examples/shellcode -a shellcode -p  ../../examples/echo.c -a hacc -p ../../examples/cat -a cat -- -f -q;pintos -q run 'shellcode'
+//pintos -q rm shellcode;pintos -q rm hacc;pintos -q rm cat;cd ../../examples/;make;cd ../userprog/build/;pintos -v -p ../../examples/arthurshellcode -a shellcode -p  ../../examples/echo.c -a hacc -p ../../examples/cat -a cat -- -f -q;pintos -q run 'shellcode'
 //pintos -q run 'cat hacc'
 
 //To run with gdb:
@@ -23,10 +29,10 @@ int main( void )
 {
    /* main from https://shell-storm.org/shellcode/files/shellcode-237.html */
   
-   void  (*fp) (void);
-   fp = (void *) shellcode;
-   printf ("%d bytes\n", strlen(shellcode));
-   fp();
+   void  (*fp) (void);                             //BaCkSpAcE
+   fp = (void *) shellcode;                        //BaCkSpAcE
+   printf ("%d bytes\n", strlen(shellcode));       //BaCkSpAcE
+   fp();                                           //BaCkSpAcE
 
    return 0;
 }
