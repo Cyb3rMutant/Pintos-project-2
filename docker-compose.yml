@@ -1,0 +1,18 @@
+services:
+  pintos:
+    image: johnstarich/pintos:v1.0
+    container_name: pintos-container
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./src:/pintos # Mount your local Pintos directory to the container
+    working_dir: /pintos
+    environment:
+      - PATH=/pintos/utils:$PATH
+    command: /bin/bash
+    networks:
+      - pintos-net
+
+networks:
+  pintos-net:
+    driver: bridge
